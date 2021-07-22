@@ -1,8 +1,0 @@
-[submodule "external/pybind11"]
-	path = external/pybind11
-	url = https://github.com/pybind/pybind11
-	branch = stable
-[submodule "external/oxen-mq"]
-	path = external/oxen-mq
-	url = https://github.com/oxen-io/oxen-mq
-	branch = dev
