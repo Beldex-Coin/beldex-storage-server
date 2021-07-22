@@ -1,0 +1,4 @@
+
+- split out proxy code & data into a private lokimq/proxy.h header so that the main header doesn't
+  need to include so much.
+
