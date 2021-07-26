@@ -13,7 +13,7 @@ endif()
 cmake_minimum_required(VERSION 3.10)
 
 project(storage_server
-    VERSION 1.0.0
+    VERSION 2.0.7
     LANGUAGES CXX C)
 
 option(INTEGRATION_TEST "build for integration test" OFF)
