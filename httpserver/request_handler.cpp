@@ -56,7 +56,7 @@ json swarm_to_json(const SwarmInfo& swarm) {
     json mnodes_json = json::array();
     for (const auto& mn : swarm.mnodes) {
         mnodes_json.push_back(json{
-                {"address", oxenmq::to_base32z(mn.pubkey_legacy.view()) + ".snode"}, // Deprecated, use pubkey_legacy instead
+                {"address", oxenmq::to_base32z(mn.pubkey_legacy.view()) + ".mnode"}, // Deprecated, use pubkey_legacy instead
                 {"pubkey_legacy", mn.pubkey_legacy.hex()},
                 {"pubkey_x25519", mn.pubkey_x25519.hex()},
                 {"pubkey_ed25519", mn.pubkey_ed25519.hex()},

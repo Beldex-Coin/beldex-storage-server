@@ -731,8 +731,8 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
     cpr::Body body{""};
     cpr::Header headers{
         {"Host", mn.pubkey_ed25519
-            ? oxenmq::to_base32z(mn.pubkey_ed25519.view()) + ".snode"
-            : "master-node.snode"},
+            ? oxenmq::to_base32z(mn.pubkey_ed25519.view()) + ".mnode"
+            : "master-node.mnode"},
         {"Content-Type", "application/octet-stream"},
         {"User-Agent", "Beldex Storage Server/" + std::string{STORAGE_SERVER_VERSION_STRING}},
     };
@@ -912,8 +912,8 @@ void MasterNode::send_storage_test_req(const mn_record& testee,
         cpr::Body body{json{{"height", test_height}, {"hash", msg.hash}}.dump()};
         cpr::Header headers{
             {"Host", testee.pubkey_ed25519
-                ? oxenmq::to_base32z(testee.pubkey_ed25519.view()) + ".snode"
-                : "master-node.snode"},
+                ? oxenmq::to_base32z(testee.pubkey_ed25519.view()) + ".mnode"
+                : "master-node.mnode"},
             {"User-Agent", "Beldex Storage Server/" + std::string{STORAGE_SERVER_VERSION_STRING}},
         };
 

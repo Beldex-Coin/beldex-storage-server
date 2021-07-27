@@ -40,7 +40,7 @@ std::string to_hex(const unsigned char* buffer, size_t length) {
 
 std::string ed25519_pubkey::mnode_address() const {
     auto addr = oxenmq::to_base32z(begin(), end());
-    addr += ".snode";
+    addr += ".mnode";
     return addr;
 }
 
