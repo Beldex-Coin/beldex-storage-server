@@ -917,7 +917,7 @@ void RequestHandler::process_onion_req(std::string_view ciphertext,
     if (!master_node_.mnode_ready())
         return data.cb({
             http::SERVICE_UNAVAILABLE,
-            fmt::format("Snode not ready: {}", master_node_.own_address().pubkey_ed25519)});
+            fmt::format("Mnode not ready: {}", master_node_.own_address().pubkey_ed25519)});
 
     BELDEX_LOG(debug, "process_onion_req");
 
@@ -932,7 +932,7 @@ void RequestHandler::process_onion_req(FinalDestinationInfo&& info,
     BELDEX_LOG(debug, "We are the target of the onion request!");
 
     if (!master_node_.mnode_ready())
-        return data.cb(wrap_proxy_response({http::SERVICE_UNAVAILABLE, "Snode not ready"s},
+        return data.cb(wrap_proxy_response({http::SERVICE_UNAVAILABLE, "Mnode not ready"s},
                     data.ephem_key, data.enc_type, info.json, info.base64));
 
     process_client_req(

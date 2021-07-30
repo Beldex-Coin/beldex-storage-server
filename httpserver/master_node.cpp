@@ -413,20 +413,20 @@ void MasterNode::on_bootstrap_update(block_update&& bu) {
 }
 
 template <typename OStream>
-OStream& operator<<(OStream& os, const SnodeStatus& status) {
+OStream& operator<<(OStream& os, const MnodeStatus& status) {
     switch (status) {
-    case SnodeStatus::UNSTAKED:
+    case MnodeStatus::UNSTAKED:
         return os << "Unstaked";
-    case SnodeStatus::DECOMMISSIONED:
+    case MnodeStatus::DECOMMISSIONED:
         return os << "Decommissioned";
-    case SnodeStatus::ACTIVE:
+    case MnodeStatus::ACTIVE:
         return os << "Active";
     default:
         return os << "Unknown";
     }
 }
 
-static SnodeStatus derive_mnode_status(const block_update& bu,
+static MnodeStatus derive_mnode_status(const block_update& bu,
                                        const mn_record& our_address) {
 
     // TODO: try not to do this again in `derive_swarm_events`
@@ -439,16 +439,16 @@ static SnodeStatus derive_mnode_status(const block_update& bu,
                      });
 
     if (our_swarm_it != bu.swarms.end()) {
-        return SnodeStatus::ACTIVE;
+        return MnodeStatus::ACTIVE;
     }
 
     if (std::find(bu.decommissioned_nodes.begin(),
                   bu.decommissioned_nodes.end(),
                   our_address) != bu.decommissioned_nodes.end()) {
-        return SnodeStatus::DECOMMISSIONED;
+        return MnodeStatus::DECOMMISSIONED;
     }
 
-    return SnodeStatus::UNSTAKED;
+    return MnodeStatus::UNSTAKED;
 }
 
 void MasterNode::on_swarm_update(block_update&& bu) {
@@ -666,7 +666,7 @@ void MasterNode::ping_peers() {
 
     // TODO: Don't do anything until we are fully funded
 
-    if (status_ == SnodeStatus::UNSTAKED || status_ == SnodeStatus::UNKNOWN) {
+    if (status_ == MnodeStatus::UNSTAKED || status_ == MnodeStatus::UNKNOWN) {
         BELDEX_LOG(trace, "Skipping peer testing (unstaked)");
         return;
     }
@@ -676,7 +676,7 @@ void MasterNode::ping_peers() {
     // Check if we've been tested (reached) recently ourselves
     reach_records_.check_incoming_tests(now);
 
-    if (status_ == SnodeStatus::DECOMMISSIONED) {
+    if (status_ == MnodeStatus::DECOMMISSIONED) {
         BELDEX_LOG(trace, "Skipping peer testing (decommissioned)");
         return;
     }
@@ -1234,7 +1234,7 @@ void MasterNode::relay_messages(const std::vector<message>& messages,
         BELDEX_LOG(debug, "Relayed messages:");
         for (auto msg : batches)
             BELDEX_LOG(debug, "    {}", msg);
-        BELDEX_LOG(debug, "To Snodes:");
+        BELDEX_LOG(debug, "To Mnodes:");
         for (auto mn : mnodes)
             BELDEX_LOG(debug, "    {}", mn.pubkey_legacy);
 
