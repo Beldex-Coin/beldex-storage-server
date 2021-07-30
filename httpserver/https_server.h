@@ -56,7 +56,7 @@ public:
     /// during destruction.
     void shutdown(bool join = false);
 
-    // Adds headers that go onto every request such as X-Loki-Snode-Signature and Server
+    // Adds headers that go onto every request such as X-Beldex-Beldex-Signature and Server
     void add_generic_headers(HttpResponse& res) const;
 
     // Sends an error response and finalizes the response.  If body is empty, uses the default error

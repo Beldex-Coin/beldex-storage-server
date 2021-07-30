@@ -59,7 +59,7 @@ class Swarm;
 /// WRONG_REQ - request was ignored as not valid (e.g. incorrect tester)
 enum class MessageTestStatus { SUCCESS, RETRY, ERROR, WRONG_REQ };
 
-enum class SnodeStatus { UNKNOWN, UNSTAKED, DECOMMISSIONED, ACTIVE };
+enum class MnodeStatus { UNKNOWN, UNSTAKED, DECOMMISSIONED, ACTIVE };
 
 /// All master node logic that is not network-specific
 class MasterNode {
@@ -77,7 +77,7 @@ class MasterNode {
     std::unique_ptr<Swarm> swarm_;
     std::unique_ptr<Database> db_;
 
-    SnodeStatus status_ = SnodeStatus::UNKNOWN;
+    MnodeStatus status_ = MnodeStatus::UNKNOWN;
 
     const mn_record our_address_;
     const legacy_seckey our_seckey_;

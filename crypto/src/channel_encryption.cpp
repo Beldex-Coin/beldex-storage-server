@@ -35,7 +35,7 @@ std::basic_string_view<unsigned char> to_uchar(std::string_view sv) {
     return {reinterpret_cast<const unsigned char*>(sv.data()), sv.size()};
 }
 
-inline constexpr std::string_view salt{"LOKI"};
+inline constexpr std::string_view salt{"BELDEX"};
 
 std::array<uint8_t, crypto_scalarmult_BYTES> derive_symmetric_key(
         const x25519_seckey& seckey,
