@@ -222,12 +222,12 @@ void MasterNode::bootstrap_data() {
 
     std::vector<oxenmq::address> seed_nodes;
     if (beldex::is_mainnet) {
-        seed_nodes.emplace_back("curve://public.beldex.io:22027/3c157ed3c675f56280dc5d8b2f00b327b5865c127bf2c6c42becc3ca73d9132b");
-        seed_nodes.emplace_back("curve://img.str:22027/449a8011d3abcb97f5db6d91529b1106b0590d2f2a86635104fe7059ffeeef47");
-        seed_nodes.emplace_back("curve://storage.seed1.beldex.io:22027/6d4146b51404576efa6f582ea0562532b25ba4aceddb0d5d12bc127360678551");
-        seed_nodes.emplace_back("curve://storage.seed3.beldex.io:22027/146fb2840583c32f7e281b81d8c5568cc7bb04155fb9968987bb265b6ca9816e");
+        seed_nodes.emplace_back("curve://public.beldex.io:29091/eee01f183b2079a529f4ba8933c0f0fcb8053337e003870ef6467a97f2259d73");
+        seed_nodes.emplace_back("curve://seed1.beldex.io:29091/37659353131815666979acea91cefa909e3413811a5453c434879b3d7e5b7031");
+        seed_nodes.emplace_back("curve://seed2.rpcnode.stream:29091/e06f6b3396b00430ff1ecfaeaa6f68030b5bcd8c3fd2fe813a0a5baa1cb9d008");
+        seed_nodes.emplace_back("curve://seed3.beldex.io:29091/bcf02e1364237e549f45accc8cab95895198c0bc0e78a86f52df74d1c2dd8204");
     } else {
-        seed_nodes.emplace_back("curve://209.250.252.119:19091/fff40f17fa8aecd597346d51d6e829bc2fe667379191e5230bc31e157646694e");
+        seed_nodes.emplace_back("curve://54.80.140.73:19091/6713a9a96ea47b25223de373edc0203cf8b4d625e96bf2656b042db8e398064");
     }
 
     auto req_counter = std::make_shared<std::atomic<int>>(0);
