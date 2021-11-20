@@ -67,8 +67,8 @@ Both PAYLOAD and CONTROL may be passed filenames to read prefixed with `@` (for 
     return 1;
 }
 
-const oxenmq::address TESTNET_OMQ{"tcp://209.250.252.119:19091/"};
-const oxenmq::address MAINNET_OMQ{"tcp://public.beldex.io:22029"};
+const oxenmq::address TESTNET_OMQ{"tcp://54.80.140.73:19091/"};
+const oxenmq::address MAINNET_OMQ{"tcp://public.beldex.io:29091"};
 
 void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_pubkey, x25519_pubkey>> keys,
         bool mainnet, std::optional<EncryptType> enc_type, std::string_view payload, std::string_view control);
