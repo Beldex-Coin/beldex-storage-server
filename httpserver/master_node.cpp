@@ -589,7 +589,7 @@ void MasterNode::update_swarms() {
                 std::lock_guard lock{mn_mutex_};
                 block_update bu = parse_swarm_update(data[1]);
                 if (!got_first_response_) {
-                    BELDEX_LOG(info, "Got initial swarm information from local Oxend");
+                    BELDEX_LOG(info, "Got initial swarm information from local Beldexd");
 
                     {
                         std::lock_guard l{first_response_mutex_};
@@ -1002,7 +1002,7 @@ void MasterNode::report_reachability(const mn_record& mn, bool reachable, int pr
         }
 
         if (data.size() < 2 || data[1].empty()) {
-            BELDEX_LOG(warn, "Empty body on Oxend report node status");
+            BELDEX_LOG(warn, "Empty body on Beldexd report node status");
             return;
         }
 
