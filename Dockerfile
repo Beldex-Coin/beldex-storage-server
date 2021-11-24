@@ -8,8 +8,7 @@ ARG BOOST_VERSION=1_70_0
 ARG BOOST_VERSION_DOT=1.70.0
 ARG BOOST_HASH=430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778
 RUN set -ex \
-    && curl -s -L -o  boost_${BOOST_VERSION}.tar.bz2 https://dl.bintray.com/boostorg/release/${BOOST_VERSION_DOT}/source/boost_${BOOST_VERSION}.tar.bz2 \
-    && echo "${BOOST_HASH}  boost_${BOOST_VERSION}.tar.bz2" | sha256sum -c \
+    && curl -s -L -O https://boostorg.jfrog.io/artifactory/main/release/1.70.0/source/boost_1_70_0.tar.bz2 \
     && tar -xvf boost_${BOOST_VERSION}.tar.bz2 \
     && cd boost_${BOOST_VERSION} \
     && ./bootstrap.sh \
@@ -67,6 +66,7 @@ ENV BOOST_ROOT /usr/src/app/boost_${BOOST_VERSION}
 ENV CC=gcc-8 CXX=g++-8
 
 RUN cd beldex-storage-server \
+    && apt install libcurl4-openssl-dev -y \
     && mkdir -p build \
     && cd build \
     && cmake .. -DBOOST_ROOT=$BOOST_ROOT -Dsodium_USE_STATIC_LIBS=ON \
