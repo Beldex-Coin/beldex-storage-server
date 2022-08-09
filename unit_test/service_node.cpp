@@ -73,7 +73,7 @@ TEST_CASE("master nodes - message hashing", "[master-nodes][messages]") {
     const auto timestamp = std::chrono::system_clock::time_point{1616650862026ms};
     const auto expiry = timestamp + 48h;
     beldex::user_pubkey_t pk;
-    REQUIRE(pk.load("05ffba630924aa1224bb930dde21c0d11bf004608f2812217f8ac812d6c7e3ad48"));
+    REQUIRE(pk.load("bdffba630924aa1224bb930dde21c0d11bf004608f2812217f8ac812d6c7e3ad48"));
     const auto data = oxenmq::from_base64(
             "CAES1gIKA1BVVBIPL2FwaS92MS9tZXNzYWdlGrsCCAYovfqZv4YvQq8CVwutUBbhRzZw80TvR6uTYMKg9DSag"
             "rtpeEpY31L7VxawfS8aSya0SiDa4J025SkjP13YX8g5pxgQ8Z6hgfNArMqr/tSijJ9miVKVDJ63YWE85O8kyW"
@@ -106,12 +106,12 @@ TEST_CASE("master nodes - message hashing", "[master-nodes][messages]") {
 
 TEST_CASE("master nodes - pubkey to swarm id") {
     beldex::user_pubkey_t pk;
-    REQUIRE(pk.load("05ffba630924aa1224bb930dde21c0d11bf004608f2812217f8ac812d6c7e3ad48"));
+    REQUIRE(pk.load("bdffba630924aa1224bb930dde21c0d11bf004608f2812217f8ac812d6c7e3ad48"));
     CHECK(pubkey_to_swarm_space(pk) == 4532060000165252872ULL);
 
-    REQUIRE(pk.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pk.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
     CHECK(pubkey_to_swarm_space(pk) == 0);
 
-    REQUIRE(pk.load("050000000000000000000000000000000000000000000000000123456789abcdef"));
+    REQUIRE(pk.load("bd0000000000000000000000000000000000000000000000000123456789abcdef"));
     CHECK(pubkey_to_swarm_space(pk) == 0x0123456789abcdefULL);
 }

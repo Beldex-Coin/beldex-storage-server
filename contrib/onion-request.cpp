@@ -208,7 +208,7 @@ EncryptType random_etype() {
 
 void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_pubkey, x25519_pubkey>> keys, bool mainnet,
         std::optional<EncryptType> enc_type, std::string_view payload, std::string_view control) {
-    std::string_view user_pubkey = "05fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+    std::string_view user_pubkey = "bdfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
     if (!mainnet) user_pubkey.remove_prefix(2);
 
     std::string blob;

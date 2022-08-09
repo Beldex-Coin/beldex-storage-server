@@ -16,7 +16,7 @@ def test_delete_all(omq, random_mn, sk, exclude):
 
     msgs = ss.store_n(omq, conns[0], sk, b"omg123", 5)
 
-    my_ss_id = '05' + sk.verify_key.encode().hex()
+    my_ss_id = 'bd' + sk.verify_key.encode().hex()
 
     ts = int(time.time() * 1000)
     to_sign = "delete_all{}".format(ts).encode()
@@ -56,7 +56,7 @@ def test_stale_delete_all(omq, random_mn, sk, exclude):
 
     msgs = ss.store_n(omq, conn, sk, b"omg123", 5)
 
-    my_ss_id = '05' + sk.verify_key.encode().hex()
+    my_ss_id = 'bd' + sk.verify_key.encode().hex()
 
     ts = int((time.time() - 120) * 1000)
     to_sign = "delete_all{}".format(ts).encode()
@@ -137,7 +137,7 @@ def test_delete_before(omq, random_mn, sk, exclude):
     # store_n submits msgs with decreasing timestamps:
     assert all(msgs[i]['req']['timestamp'] > msgs[i+1]['req']['timestamp'] for i in range(len(msgs)-1))
 
-    my_ss_id = '05' + sk.verify_key.encode().hex()
+    my_ss_id = 'bd' + sk.verify_key.encode().hex()
 
     # Delete the last couple messages:
     ts = msgs[8]['req']['timestamp']
