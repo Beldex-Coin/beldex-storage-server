@@ -16,7 +16,7 @@ def test_expire_all(omq, random_mn, sk, exclude):
 
     msgs = ss.store_n(omq, conns[0], sk, b"omg123", 5)
 
-    my_ss_id = '05' + sk.verify_key.encode().hex()
+    my_ss_id = 'bd' + sk.verify_key.encode().hex()
 
     ts = msgs[2]['req']['expiry']
     to_sign = "expire_all{}".format(ts).encode()
@@ -65,7 +65,7 @@ def test_stale_expire_all(omq, random_mn, sk, exclude):
 
     msgs = ss.store_n(omq, conn, sk, b"omg123", 5)
 
-    my_ss_id = '05' + sk.verify_key.encode().hex()
+    my_ss_id = 'bd' + sk.verify_key.encode().hex()
 
     ts = int((time.time() - 120) * 1000)
     to_sign = "expire_all{}".format(ts).encode()
@@ -88,7 +88,7 @@ def test_expire(omq, random_mn, sk, exclude):
 
     msgs = ss.store_n(omq, conns[0], sk, b"omg123", 10)
 
-    my_ss_id = '05' + sk.verify_key.encode().hex()
+    my_ss_id = 'bd' + sk.verify_key.encode().hex()
 
     ts = msgs[6]['req']['expiry']
     hashes = [msgs[i]['hash'] for i in (0, 1, 5, 6, 7, 9)] + ['bepQtTaYrzcuCXO3fZkmk/h3xkMQ3vCh94i5HzLmj3I']

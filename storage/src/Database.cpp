@@ -269,8 +269,8 @@ CREATE TRIGGER owned_messages_insert
                 int type;
                 std::array<char, 32> pubkey;
                 std::string old_owner = old_owners.getColumn(0);
-                if (old_owner.size() == 66 && util::starts_with(old_owner, "05") && oxenmq::is_hex(old_owner)) {
-                    type = 5;
+                if (old_owner.size() == 66 && util::starts_with(old_owner, "bd") && oxenmq::is_hex(old_owner)) {
+                    type = 189;
                     oxenmq::from_hex(old_owner.begin() + 2, old_owner.end(), pubkey.begin());
                 } else if (old_owner.size() == 64 && oxenmq::is_hex(old_owner)) {
                     type = 0;

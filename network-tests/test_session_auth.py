@@ -25,7 +25,7 @@ def test_session_auth(omq, random_mn, sk, exclude):
 
     msgs = ss.store_n(omq, conn, xsk, b"omg123", 5)
 
-    my_ss_id = '05' + xsk.public_key.encode().hex()
+    my_ss_id = 'bd' + xsk.public_key.encode().hex()
 
     ts = int(time.time() * 1000)
     to_sign = "delete_all{}".format(ts).encode()
@@ -90,7 +90,7 @@ def test_session_auth(omq, random_mn, sk, exclude):
 def test_non_session_no_ed25519(omq, random_mn, sk, exclude):
     """
     Test that the session key hack doesn't work for non-Session addresses (i.e. when not using the
-    05 prefix).
+    bd prefix).
     """
 
     xsk = sk.to_curve25519_private_key()
@@ -116,4 +116,4 @@ def test_non_session_no_ed25519(omq, random_mn, sk, exclude):
 
     resp = omq.request(conn, 'storage.delete_all', [json.dumps(params).encode()])
 
-    assert resp == [b'400', b'invalid request: pubkey_ed25519 is only permitted for 05[...] pubkeys']
+    assert resp == [b'400', b'invalid request: pubkey_ed25519 is only permitted for bd[...] pubkeys']

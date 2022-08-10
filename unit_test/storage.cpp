@@ -35,7 +35,7 @@ TEST_CASE("storage - data persistence", "[storage]") {
     StorageDeleter fixture;
 
     user_pubkey_t pubkey;
-    REQUIRE(pubkey.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
     const auto hash = "myhash";
     const auto bytes = "bytesasstring";
     const auto ttl = 123456ms;
@@ -70,7 +70,7 @@ TEST_CASE("storage - returns false when storing existing hash", "[storage]") {
     StorageDeleter fixture;
 
     user_pubkey_t pubkey;
-    REQUIRE(pubkey.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
     const auto hash = "myhash";
     const auto bytes = "bytesasstring";
     const auto ttl = 123456ms;
@@ -96,8 +96,8 @@ TEST_CASE("storage - only return entries for specified pubkey", "[storage]") {
     Database storage{"."};
 
     user_pubkey_t pubkey1, pubkey2;
-    REQUIRE(pubkey1.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
-    REQUIRE(pubkey2.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdee"));
+    REQUIRE(pubkey1.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey2.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdee"));
 
     auto now = std::chrono::system_clock::now();
     CHECK(storage.store({pubkey1, "hash0", now, now + 100s, "bytesasstring0"}));
@@ -126,7 +126,7 @@ TEST_CASE("storage - return entries older than lasthash", "[storage]") {
     Database storage{"."};
 
     user_pubkey_t pubkey;
-    REQUIRE(pubkey.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
 
     auto now = std::chrono::system_clock::now();
     const size_t num_entries = 100;
@@ -158,9 +158,9 @@ TEST_CASE("storage - remove expired entries", "[storage]") {
     StorageDeleter fixture;
 
     user_pubkey_t pubkey1, pubkey2, pubkey3;
-    REQUIRE(pubkey1.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
-    REQUIRE(pubkey2.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdee"));
-    REQUIRE(pubkey3.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcded"));
+    REQUIRE(pubkey1.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey2.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdee"));
+    REQUIRE(pubkey3.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcded"));
 
     Database storage{"."};
 
@@ -197,7 +197,7 @@ TEST_CASE("storage - bulk data storage", "[storage]") {
     StorageDeleter fixture;
 
     user_pubkey_t pubkey;
-    REQUIRE(pubkey.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
     const auto bytes = "bytesasstring";
     const auto ttl = 123456ms;
     const auto timestamp = std::chrono::system_clock::now();
@@ -230,7 +230,7 @@ TEST_CASE("storage - bulk storage with overlap", "[storage]") {
     StorageDeleter fixture;
 
     user_pubkey_t pubkey;
-    REQUIRE(pubkey.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
     const auto bytes = "bytesasstring";
     const auto ttl = 123456ms;
     const auto timestamp = std::chrono::system_clock::now();
@@ -272,7 +272,7 @@ TEST_CASE("storage - retrieve limit", "[storage]") {
     Database storage{"."};
 
     user_pubkey_t pubkey;
-    REQUIRE(pubkey.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
 
     auto now = std::chrono::system_clock::now();
     const size_t num_entries = 100;
@@ -282,7 +282,7 @@ TEST_CASE("storage - retrieve limit", "[storage]") {
     }
 
     user_pubkey_t pubkey2;
-    REQUIRE(pubkey2.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdee"));
+    REQUIRE(pubkey2.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdee"));
 
     for (size_t i = 0; i < 5; i++) {
         const auto hash = "anotherhash" + std::to_string(i);

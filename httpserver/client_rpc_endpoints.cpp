@@ -169,8 +169,8 @@ static void load_pk_signature(
                 USER_PUBKEY_SIZE_HEX, USER_PUBKEY_SIZE_BYTES)};
 
     if (pk_ed) {
-        if (rpc.pubkey.type() != 5)
-            throw parse_error{"pubkey_ed25519 is only permitted for 05[...] pubkeys"};
+        if (rpc.pubkey.type() != 189)
+            throw parse_error{"pubkey_ed25519 is only permitted for bd[...] pubkeys"};
         if (pk_ed->size() == 64) {
             if (!oxenmq::is_hex(*pk_ed))
                 throw parse_error{"invalid pubkey_ed25519: value is not hex"};
