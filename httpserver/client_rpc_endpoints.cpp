@@ -467,7 +467,7 @@ void get_swarm::load_from(json params) { load(*this, params); }
 void get_swarm::load_from(bt_dict_consumer params) { load(*this, params); }
 
 inline const static std::unordered_set<std::string_view> allowed_beldexd_endpoints{{
-    "get_master_nodes"sv, "ons_resolve"sv}};
+    "get_master_nodes"sv, "bns_resolve"sv}};
 
 template <typename Dict>
 static void load(beldexd_request& o, Dict& d) {

@@ -200,7 +200,7 @@ class RequestHandler {
             std::function<void(MessageTestStatus, std::string, std::chrono::steady_clock::duration)> callback);
 
     // Forwards a request to beldexd RPC. `params` should contain:
-    // - endpoint -- the name of the rpc endpoint; currently allowed are `ons_resolve` and
+    // - endpoint -- the name of the rpc endpoint; currently allowed are `bns_resolve` and
     // `get_master_nodes`.
     // - params -- optional dict of parameters to pass through to beldexd as part of the request
     //
