@@ -169,8 +169,8 @@ static void load_pk_signature(
                 USER_PUBKEY_SIZE_HEX, USER_PUBKEY_SIZE_BYTES)};
 
     if (pk_ed) {
-        if (rpc.pubkey.type() != 5)
-            throw parse_error{"pubkey_ed25519 is only permitted for 05[...] pubkeys"};
+        if (rpc.pubkey.type() != 189)
+            throw parse_error{"pubkey_ed25519 is only permitted for bd[...] pubkeys"};
         if (pk_ed->size() == 64) {
             if (!oxenmq::is_hex(*pk_ed))
                 throw parse_error{"invalid pubkey_ed25519: value is not hex"};
@@ -467,7 +467,7 @@ void get_swarm::load_from(json params) { load(*this, params); }
 void get_swarm::load_from(bt_dict_consumer params) { load(*this, params); }
 
 inline const static std::unordered_set<std::string_view> allowed_beldexd_endpoints{{
-    "get_master_nodes"sv, "ons_resolve"sv}};
+    "get_master_nodes"sv, "bns_resolve"sv}};
 
 template <typename Dict>
 static void load(beldexd_request& o, Dict& d) {

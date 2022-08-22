@@ -132,10 +132,10 @@ struct store final : recursive {
 /// - signature -- Ed25519 signature of ("retrieve" || timestamp), where timestamp is the base10
 /// expression of the timestamp value.  Muust be base64 encoded for json requests; binary for OMQ
 /// requests.
-/// - pubkey_ed25519 if provided *and* the pubkey has a type 05 (i.e. Session id) then `pubkey` will
+/// - pubkey_ed25519 if provided *and* the pubkey has a type bd (i.e. Session id) then `pubkey` will
 /// be interpreted as an `x25519` pubkey derived from this given ed25519 pubkey (which must be 64
 /// hex characters or 32 bytes).  *This* pubkey should be used for signing, but must also convert to
-/// the given `pubkey` value (without the `05` prefix).
+/// the given `pubkey` value (without the `bd` prefix).
 struct retrieve final : endpoint {
     static constexpr auto names() { return NAMES("retrieve"); }
 
@@ -167,10 +167,10 @@ struct info final : no_args {
 ///
 /// Takes parameters of:
 /// - pubkey -- the pubkey whose messages shall be deleted, in hex (66) or bytes (33)
-/// - pubkey_ed25519 if provided *and* the pubkey has a type 05 (i.e. Session id) then `pubkey` will
+/// - pubkey_ed25519 if provided *and* the pubkey has a type bd (i.e. Session id) then `pubkey` will
 /// be interpreted as an `x25519` pubkey derived from this given ed25519 pubkey (which must be 64
 /// hex characters or 32 bytes).  *This* pubkey should be used for signing, but must also convert to
-/// the given `pubkey` value (without the `05` prefix).
+/// the given `pubkey` value (without the `bd` prefix).
 /// - messages -- array of message hash strings (as provided by the storage server) to delete
 /// - signature -- Ed25519 signature of ("delete" || messages...); this signs the value
 /// constructed by concatenating "delete" and all `messages` values, using `pubkey` to sign.
@@ -203,10 +203,10 @@ struct delete_msgs final : recursive {
 ///
 /// Takes parameters of:
 /// - pubkey -- the pubkey whose messages shall be deleted, in hex (66) or bytes (33)
-/// - pubkey_ed25519 if provided *and* the pubkey has a type 05 (i.e. Session id) then `pubkey` will
+/// - pubkey_ed25519 if provided *and* the pubkey has a type bd (i.e. Session id) then `pubkey` will
 /// be interpreted as an `x25519` pubkey derived from this given ed25519 pubkey (which must be 64
 /// hex characters or 32 bytes).  *This* pubkey should be used for signing, but must also convert to
-/// the given `pubkey` value (without the `05` prefix).
+/// the given `pubkey` value (without the `bd` prefix).
 /// - timestamp -- the timestamp at which this request was initiated, in milliseconds since unix
 ///   epoch.  Must be within ±60s of the current time.  (For clients it is recommended to retrieve a
 ///   timestamp via `info` first, to avoid client time sync issues).
@@ -238,10 +238,10 @@ struct delete_all final : recursive {
 ///
 /// Takes parameters of:
 /// - pubkey -- the pubkey whose messages shall be deleted, in hex (66) or bytes (33)
-/// - pubkey_ed25519 if provided *and* the pubkey has a type 05 (i.e. Session id) then `pubkey` will
+/// - pubkey_ed25519 if provided *and* the pubkey has a type bd (i.e. Session id) then `pubkey` will
 /// be interpreted as an `x25519` pubkey derived from this given ed25519 pubkey (which must be 64
 /// hex characters or 32 bytes).  *This* pubkey should be used for signing, but must also convert to
-/// the given `pubkey` value (without the `05` prefix).
+/// the given `pubkey` value (without the `bd` prefix).
 /// - before -- the timestamp (in milliseconds since unix epoch) for deletion; all stored messages
 ///   with timestamps <= this value will be deleted.  Should be <= now, but tolerance acceptance
 ///   allows it to be <= 60s from now.
@@ -273,10 +273,10 @@ struct delete_before final : recursive {
 ///
 /// Takes parameters of:
 /// - pubkey -- the pubkey whose messages shall have their expiries reduced, in hex (66) or bytes (33)
-/// - pubkey_ed25519 if provided *and* the pubkey has a type 05 (i.e. Session id) then `pubkey` will
+/// - pubkey_ed25519 if provided *and* the pubkey has a type bd (i.e. Session id) then `pubkey` will
 /// be interpreted as an `x25519` pubkey derived from this given ed25519 pubkey (which must be 64
 /// hex characters or 32 bytes).  *This* pubkey should be used for signing, but must also convert to
-/// the given `pubkey` value (without the `05` prefix).
+/// the given `pubkey` value (without the `bd` prefix).
 /// - expiry -- the new expiry timestamp (milliseconds since unix epoch).  Should be >= now, but
 ///   tolerance acceptance allows >= 60s ago.
 /// - signature -- signature of ("expire_all" || expiry), signed by `pubkey`.  Must be base64
@@ -308,10 +308,10 @@ struct expire_all final : recursive {
 ///
 /// Takes parameters of:
 /// - pubkey -- the pubkey whose messages shall have their expiries reduced, in hex (66) or bytes (33)
-/// - pubkey_ed25519 if provided *and* the pubkey has a type 05 (i.e. Session id) then `pubkey` will
+/// - pubkey_ed25519 if provided *and* the pubkey has a type bd (i.e. Session id) then `pubkey` will
 /// be interpreted as an `x25519` pubkey derived from this given ed25519 pubkey (which must be 64
 /// hex characters or 32 bytes).  *This* pubkey should be used for signing, but must also convert to
-/// the given `pubkey` value (without the `05` prefix).
+/// the given `pubkey` value (without the `bd` prefix).
 /// - messages -- array of message hash strings (as provided by the storage server) to update
 /// - expiry -- the new expiry timestamp (milliseconds since unix epoch).  Must be >= 60s ago.
 /// - signature -- Ed25519 signature of ("expire" || expiry || messages[0] || ... || messages[N])
@@ -357,10 +357,10 @@ struct get_swarm final : endpoint {
 
 /// Forwards an RPC request to the this storage server's beldexd.  Takes keys of:
 ///
-/// - `endpoint` (required) the public beldexd endpoint name such as "ons_resolve". Only accepts
+/// - `endpoint` (required) the public beldexd endpoint name such as "bns_resolve". Only accepts
 ///   whitelisted beldexd rpc endpoints; currently supported are:
 ///     - get_master_nodes
-///     - ons_resolve
+///     - bns_resolve
 /// - `params` (optional) dict of parameters to forward to beldexd.  Can be omitted or null if no
 ///   parameters should be passed.
 ///
