@@ -450,8 +450,11 @@ void RequestHandler::process_client_req(
         mine["query_failure"] = true;
     }
     if (entry_router)
+    {
         mine["t"] = to_epoch_ms(now);
-
+        res->result["t"] = to_epoch_ms(now);
+    }
+    
     BELDEX_LOG(trace, "Successfully stored message {} for {}", message_hash, obfuscate_pubkey(req.pubkey));
 
     if (--res->pending == 0)
