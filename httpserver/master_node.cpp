@@ -750,7 +750,7 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
                 auto& pk = mn.pubkey_legacy;
                 bool success = false;
                 if (r.error.code != cpr::ErrorCode::OK) {
-                    BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: {} {}", pk, r.error.code, r.error.message);
+                    BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: {}", pk, r.error.message);
                 } else if (r.status_code != 200) {
                     BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: received non-200 status {} {}",
                             pk, r.status_code, r.status_line);
