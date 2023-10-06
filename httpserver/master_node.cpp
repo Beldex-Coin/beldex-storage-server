@@ -374,16 +374,6 @@ bool MasterNode::process_store(message msg, bool* new_msg) {
         BELDEX_LOG(trace, *stored ? "saved message: {}" : "message already exists: {}", msg.data);
     if (new_msg)
         *new_msg = stored.value_or(false);
-
-    bool legacy_store = !hf_at_least(HARDFORK_RECURSIVE_STORE);
-    if (legacy_store) {
-        auto serialized = std::move(serialize_messages(&msg, &msg+1, SERIALIZATION_VERSION_OLD).front());
-
-        for (auto& peer : swarm_->other_nodes())
-            relay_data_reliable(serialized, peer);
-
-        BELDEX_LOG(debug, "Relayed message to {} swarm peers", swarm_->other_nodes().size());
-    }
     return true;
 }
 
@@ -724,10 +714,7 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
     // case they have to report the final result to beldexd).
     auto test_results = std::make_shared<std::pair<const mn_record, std::atomic<uint8_t>>>(
             mn, 0);
-
-    bool old_ping_test = !hf_at_least(HARDFORK_HTTPS_PING_TEST_URL);
-    cpr::Url url{fmt::format("https://{}:{}{}/ping_test/v1",
-            mn.ip, mn.port, old_ping_test ? "/swarms" : "")};
+    cpr::Url url{fmt::format("https://{}:{}/ping_test/v1", mn.ip, mn.port)};
     cpr::Body body{""};
     cpr::Header headers{
         {"Host", mn.pubkey_ed25519
@@ -737,14 +724,10 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
         {"User-Agent", "Beldex Storage Server/" + std::string{STORAGE_SERVER_VERSION_STRING}},
     };
 
-    if (old_ping_test)
-        for (auto& [h, v] : sign_request(body.str()))
-            headers[h] = std::move(v);
-
     BELDEX_LOG(debug, "Sending HTTPS ping to {} @ {}", mn.pubkey_legacy, url);
     outstanding_https_reqs_.emplace_front(
         cpr::PostCallback(
-            [this, &omq=*omq_server(), old_ping_test, test_results, previous_failures]
+            [this, &omq=*omq_server(), test_results, previous_failures]
             (cpr::Response r) {
                 auto& [mn, result] = *test_results;
                 auto& pk = mn.pubkey_legacy;
@@ -755,27 +738,15 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
                     BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: received non-200 status {} {}",
                             pk, r.status_code, r.status_line);
                 } else {
-                    if (old_ping_test) {
-                        if (r.header.count(http::MNODE_SIGNATURE_HEADER))
-                            // The signature returned is of the cert.pem which is impossible to
-                            // verify without going deeper into the low level SSL layer which isn't
-                            // worth the bother, so just accept anything with the signature header
-                            // set.
-                            success = true;
-                        else
-                            BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: {} response header missing",
-                                    pk, http::MNODE_SIGNATURE_HEADER);
-                    } else {
-                        if (auto it = r.header.find(http::MNODE_PUBKEY_HEADER);
-                                it == r.header.end())
-                            BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: {} response header missing",
-                                    pk, http::MNODE_PUBKEY_HEADER);
-                        else if (auto remote_pk = parse_legacy_pubkey(it->second); remote_pk != pk)
-                            BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: reply has wrong pubkey {}",
-                                    pk, remote_pk);
-                        else
-                            success = true;
-                    }
+                    if (auto it = r.header.find(http::MNODE_PUBKEY_HEADER);
+                            it == r.header.end())
+                        BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: {} response header missing",
+                                pk, http::MNODE_PUBKEY_HEADER);
+                    else if (auto remote_pk = parse_legacy_pubkey(it->second); remote_pk != pk)
+                        BELDEX_LOG(debug, "FAILED HTTPS ping test of {}: reply has wrong pubkey {}",
+                                pk, remote_pk);
+                    else
+                        success = true;
                 }
                 if (success)
                     BELDEX_LOG(debug, "Successful HTTPS ping test of {}", pk);
@@ -907,72 +878,10 @@ void MasterNode::send_storage_test_req(const mn_record& testee,
                                         uint64_t test_height,
                                         const message& msg) {
 
-    if (!hf_at_least(HARDFORK_OMQ_STORAGE_TESTS)) {
-        // Deprecated HTTPS storage test: remove after HF18.1
-        cpr::Body body{json{{"height", test_height}, {"hash", msg.hash}}.dump()};
-        cpr::Header headers{
-            {"Host", testee.pubkey_ed25519
-                ? oxenmq::to_base32z(testee.pubkey_ed25519.view()) + ".mnode"
-                : "master-node.mnode"},
-            {"User-Agent", "Beldex Storage Server/" + std::string{STORAGE_SERVER_VERSION_STRING}},
-        };
-
-        for (auto& [h, v] : sign_request(body.str()))
-            headers[h] = std::move(v);
-
-        outstanding_https_reqs_.emplace_front(
-            cpr::PostCallback(
-                [this, testee, msg, height=block_height_]
-                (cpr::Response r) {
-                    auto& pk = testee.pubkey_legacy;
-                    std::string status;
-                    std::string answer;
-                    if (r.error.code != cpr::ErrorCode::OK)
-                        BELDEX_LOG(debug, "FAILED storage test of {}: {}", pk, r.error.message);
-                    else if (r.status_code != 200)
-                        BELDEX_LOG(debug, "FAILED storage test of {}: received non-200 status {} {}",
-                                pk, r.status_code, r.status_line);
-                    else if (r.text.empty())
-                        BELDEX_LOG(debug, "FAILED storage test of {}: received empty body", pk);
-                    else {
-                        try {
-                            json res_json = json::parse(r.text);
-                            status = res_json.at("status").get<std::string>();
-                            auto& ans = res_json.at("value").get_ref<const std::string&>();
-                            if (oxenmq::is_base64(ans))
-                                answer = oxenmq::from_base64(ans);
-                            else
-                                BELDEX_LOG(debug, "FAILED storage test of {}: body of legacy HTTP request was not base64");
-                        } catch (const std::exception& e) {
-                            BELDEX_LOG(debug, "FAILED storage test of {}: invalid json response ({})", pk, e.what());
-                            status.clear();
-                            answer.clear();
-                        }
-                    }
-
-                    process_storage_test_response(testee, msg, height, std::move(status), std::move(answer));
-                },
-                cpr::Url{fmt::format("https://{}:{}/swarms/storage_test/v1", testee.ip, testee.port)},
-                cpr::Timeout{STORAGE_TEST_TIMEOUT},
-                cpr::Ssl(
-                        cpr::ssl::TLSv1_2{},
-                        cpr::ssl::VerifyHost{false},
-                        cpr::ssl::VerifyPeer{false},
-                        cpr::ssl::VerifyStatus{false}),
-                cpr::MaxRedirects{0},
-                std::move(headers),
-                std::move(body)
-            )
-        );
-        return;
-    }
-
-    // TODO: can drop the "is hex" part of this 14+ days after HF 18.1 takes effect
-    bool is_hex = msg.hash.size() == 128;
-    bool is_b64 = !is_hex && oxenmq::is_base64(msg.hash);
-    if (!is_hex && !is_b64) {
-        BELDEX_LOG(err, "Unable to initiate storage test: retrieved msg hash is neither SHA512+hex nor BLAKE2b+base64");
-        return;
+    bool is_b64 = oxenmq::is_base64(msg.hash);
+    if (!is_b64) {
+            BELDEX_LOG(err, "Unable to initiate storage test: retrieved msg hash is not expected BLAKE2b+base64");
+            return;
     }
 
     omq_server_->request(
@@ -989,7 +898,7 @@ void MasterNode::send_storage_test_req(const mn_record& testee,
         oxenmq::send_option::request_timeout{STORAGE_TEST_TIMEOUT},
         // Data parts: test height and msg hash (in bytes)
         std::to_string(block_height_),
-        is_hex ? oxenmq::from_hex(msg.hash) : oxenmq::from_base64(msg.hash)
+        oxenmq::from_base64(msg.hash)
     );
 }
 
@@ -1226,9 +1135,8 @@ void MasterNode::bootstrap_swarms(
 
 void MasterNode::relay_messages(const std::vector<message>& messages,
                                  const std::vector<mn_record>& mnodes) const {
-    std::vector<std::string> batches = serialize_messages(messages.begin(), messages.end(),
-            !hf_at_least(HARDFORK_BT_MESSAGE_SERIALIZATION)
-                ? SERIALIZATION_VERSION_OLD : SERIALIZATION_VERSION_BT);
+    std::vector<std::string> batches = serialize_messages(
+            messages.begin(), messages.end(), SERIALIZATION_VERSION_BT);
 
     if (BELDEX_LOG_ENABLED(debug)) {
         BELDEX_LOG(debug, "Relayed messages:");
