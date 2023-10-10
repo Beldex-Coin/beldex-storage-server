@@ -16,9 +16,9 @@
 #include <cpr/cpr.h>
 #include <mutex>
 #include <nlohmann/json.hpp>
-#include <oxenmq/base32z.h>
-#include <oxenmq/base64.h>
-#include <oxenmq/hex.h>
+#include <oxenc/base32z.h>
+#include <oxenc/base64.h>
+#include <oxenc/hex.h>
 #include <oxenmq/oxenmq.h>
 
 #include <algorithm>
@@ -598,7 +598,7 @@ void MasterNode::update_swarms() {
                                                 data[1].front() == '"' && data[1].back() == '"'))
                                         return;
                                     std::string_view hash{data[1].data() + 1, data[1].size() - 2};
-                                    if (oxenmq::is_hex(hash)) {
+                                    if (oxenc::is_hex(hash)) {
                                         BELDEX_LOG(debug, "Pre-loaded hash {} for height {}", hash, h);
                                         block_hashes_cache_.insert_or_assign(h, hash);
                                     }
@@ -688,8 +688,8 @@ void MasterNode::ping_peers() {
 std::vector<std::pair<std::string, std::string>> MasterNode::sign_request(std::string_view body) const {
     std::vector<std::pair<std::string, std::string>> headers;
     const auto signature = generate_signature(hash_data(body), {our_address_.pubkey_legacy, our_seckey_});
-    headers.emplace_back(http::MNODE_SIGNATURE_HEADER, oxenmq::to_base64(util::view_guts(signature)));
-    headers.emplace_back(http::MNODE_SENDER_HEADER, oxenmq::to_base32z(our_address_.pubkey_legacy.view()));
+    headers.emplace_back(http::MNODE_SIGNATURE_HEADER, oxenc::to_base64(util::view_guts(signature)));
+    headers.emplace_back(http::MNODE_SENDER_HEADER, oxenc::to_base32z(our_address_.pubkey_legacy.view()));
     return headers;
 }
 
@@ -718,7 +718,7 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
     cpr::Body body{""};
     cpr::Header headers{
         {"Host", mn.pubkey_ed25519
-            ? oxenmq::to_base32z(mn.pubkey_ed25519.view()) + ".mnode"
+            ? oxenc::to_base32z(mn.pubkey_ed25519.view()) + ".mnode"
             : "master-node.mnode"},
         {"Content-Type", "application/octet-stream"},
         {"User-Agent", "Beldex Storage Server/" + std::string{STORAGE_SERVER_VERSION_STRING}},
@@ -878,7 +878,7 @@ void MasterNode::send_storage_test_req(const mn_record& testee,
                                         uint64_t test_height,
                                         const message& msg) {
 
-    bool is_b64 = oxenmq::is_base64(msg.hash);
+    bool is_b64 = oxenc::is_base64(msg.hash);
     if (!is_b64) {
             BELDEX_LOG(err, "Unable to initiate storage test: retrieved msg hash is not expected BLAKE2b+base64");
             return;
@@ -898,7 +898,7 @@ void MasterNode::send_storage_test_req(const mn_record& testee,
         oxenmq::send_option::request_timeout{STORAGE_TEST_TIMEOUT},
         // Data parts: test height and msg hash (in bytes)
         std::to_string(block_height_),
-        oxenmq::from_base64(msg.hash)
+        oxenc::from_base64(msg.hash)
     );
 }
 

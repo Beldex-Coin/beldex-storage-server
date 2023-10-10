@@ -5,8 +5,6 @@
 #include <string>
 #include <string_view>
 
-#include <oxenmq/hex.h>
-
 namespace beldex {
 
 using namespace std::literals;

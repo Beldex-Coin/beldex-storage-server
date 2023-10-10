@@ -1,13 +1,13 @@
 #include "serialization.h"
 
 #include "beldex_logger.h"
-#include "oxenmq/bt_serialize.h"
 #include "master_node.h"
 #include "time.hpp"
 #include "string_utils.hpp"
 
 #include <boost/endian/conversion.hpp>
-#include <oxenmq/base64.h>
+#include <oxenc/base64.h>
+#include <oxenc/bt_serialize.h>
 
 #include <chrono>
 
@@ -19,7 +19,7 @@ std::vector<std::string> serialize_messages(std::function<const message*()> next
     std::vector<std::string> res;
 
     if (version == SERIALIZATION_VERSION_BT) {
-        oxenmq::bt_list l;
+        oxenc::bt_list l;
         size_t counter = 2;
         while (auto* msg = next_msg()) {
             size_t ser_size =
@@ -35,13 +35,13 @@ std::vector<std::string> serialize_messages(std::function<const message*()> next
                 // Adding this message would push us over the limit, so finish it off and start a
                 // new serialization piece.
                 std::ostringstream oss;
-                oss << SERIALIZATION_VERSION_BT << oxenmq::bt_serializer(l);
+                oss << SERIALIZATION_VERSION_BT << oxenc::bt_serializer(l);
                 res.push_back(oss.str());
                 l.clear();
                 counter = 1 + 2 + ser_size;
             }
             assert(msg->pubkey);
-            l.push_back(oxenmq::bt_list{{
+            l.push_back(oxenc::bt_list{{
                 msg->pubkey.prefixed_raw(),
                 msg->hash,
                 to_epoch_ms(msg->timestamp),
@@ -50,7 +50,7 @@ std::vector<std::string> serialize_messages(std::function<const message*()> next
         }
 
         std::ostringstream oss;
-        oss << uint8_t{1} /* version*/ << oxenmq::bt_serializer(l);
+        oss << uint8_t{1} /* version*/ << oxenc::bt_serializer(l);
         res.push_back(oss.str());
     } else {
         BELDEX_LOG(critical, "Invalid serialization version {}", +version);
@@ -83,7 +83,7 @@ std::vector<message> deserialize_messages(std::string_view slice) {
     // v1:
     std::vector<message> result;
     try {
-        oxenmq::bt_list_consumer l{slice};
+        oxenc::bt_list_consumer l{slice};
         while (!l.is_finished()) {
             auto& item = result.emplace_back();
             auto m = l.consume_list_consumer();
