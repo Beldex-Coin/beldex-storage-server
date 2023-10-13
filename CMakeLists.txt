@@ -16,10 +16,6 @@ project(storage_server
     VERSION 2.2.1
     LANGUAGES CXX C)
 
-option(INTEGRATION_TEST "build for integration test" OFF)
-option(DISABLE_MNODE_SIGNATURE "Generate and verify signatures for inter-mnode communication"
-    OFF)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS FALSE)
@@ -39,15 +35,6 @@ if(USE_LTO AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
 else()
   message(STATUS "LTO disabled")
   set(IPO_ENABLED OFF)
-endif()
-
-if (INTEGRATION_TEST)
-    add_definitions(-DINTEGRATION_TEST)
-endif()
-
-
-if (DISABLE_MNODE_SIGNATURE)
-    add_definitions(-DDISABLE_MNODE_SIGNATURE)
 endif()
 
 option(BUILD_TESTS "build storage server unit tests" OFF)

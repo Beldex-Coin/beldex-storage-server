@@ -53,10 +53,6 @@ MasterNode::MasterNode(
 
     BELDEX_LOG(info, "Requesting initial swarm state");
 
-#ifdef INTEGRATION_TEST
-    syncing_ = false;
-#endif
-
     omq_server->add_timer([this] { std::lock_guard l{mn_mutex_}; db_->clean_expired(); },
             Database::CLEANUP_PERIOD);
 
@@ -532,9 +528,7 @@ void MasterNode::on_swarm_update(block_update&& bu) {
         bootstrap_swarms();
     }
 
-#ifndef INTEGRATION_TEST
     initiate_peer_test();
-#endif
 }
 
 void MasterNode::update_swarms() {
@@ -605,7 +599,6 @@ void MasterNode::update_swarms() {
                                 },
                                 "{\"height\":[" + util::int_to_string(h) + "]}");
 
-#ifndef INTEGRATION_TEST
                     // If this is our very first response then we *may* want to try falling back to
                     // the bootstrap node *if* our response looks sparse: this will typically happen
                     // for a fresh master node because IP/port distribution through the network can
@@ -630,7 +623,6 @@ void MasterNode::update_swarms() {
                                 "querying bootstrap nodes for help", missing, total);
                         bootstrap_data();
                     }
-#endif
                 }
 
                 if (!bu.unchanged) {
@@ -859,9 +851,6 @@ void MasterNode::process_storage_test_response(const mn_record& testee,
             BELDEX_LOG(debug,
                      "Test answer doesn't match for: {} at height {}",
                      testee.pubkey_legacy, test_height);
-#ifdef INTEGRATION_TEST
-            BELDEX_LOG(warn, "got: {} expected: {}", value, msg.data);
-#endif
             result = ResultType::MISMATCH;
         }
     } else if (status == "wrong request") {
@@ -1037,10 +1026,6 @@ std::pair<MessageTestStatus, std::string> MasterNode::process_storage_test_req(
         if (tester.pubkey_legacy != tester_pk) {
             BELDEX_LOG(debug, "Wrong tester: {}, expected: {}", tester_pk,
                      tester.pubkey_legacy);
-#ifdef INTEGRATION_TEST
-            BELDEX_LOG(critical, "ABORT in integration test");
-            std::abort();
-#endif
             return {MessageTestStatus::WRONG_REQ, ""};
         } else {
             BELDEX_LOG(trace, "Tester is valid: {}", tester_pk);

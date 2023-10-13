@@ -71,10 +71,6 @@ int main(int argc, char* argv[]) {
     // Always print version for the logs
     BELDEX_LOG(info, "{}", beldex::STORAGE_SERVER_VERSION_INFO);
 
-#ifdef INTEGRATION_TEST
-    BELDEX_LOG(warn, "Compiled for integration tests; this binary will not function as a regular storage server!");
-#endif
-
     if (options.ip == "127.0.0.1") {
         BELDEX_LOG(critical,
                  "Tried to bind beldex-storage to localhost, please bind "
@@ -109,26 +105,10 @@ int main(int argc, char* argv[]) {
             BELDEX_LOG(info, "Stats access key: {}", key);
         }
 
-#ifndef INTEGRATION_TEST
+
         const auto [private_key, private_key_ed25519, private_key_x25519] =
             get_mn_privkeys(options.beldexd_omq_rpc, [] { return signalled == 0; });
-#else
-        // Normally we request the key from daemon, but in integrations/swarm
-        // testing we are not able to do that, so we extract the key as a
-        // command line option:
-        legacy_seckey private_key{};
-        ed25519_seckey private_key_ed25519{};
-        x25519_seckey private_key_x25519{};
-        try {
-            private_key = legacy_seckey::from_hex(options.beldexd_key);
-            private_key_ed25519 = ed25519_seckey::from_hex(options.beldexd_ed25519_key);
-            private_key_x25519 = x25519_seckey::from_hex(options.beldexd_x25519_key);
-        } catch (...) {
-            BELDEX_LOG(critical, "This storage server binary is compiled in integration test mode: "
-                "--beldexd-key, --beldexd-x25519-key, and --beldexd-ed25519-key are required");
-            throw;
-        }
-#endif
+            
         if (signalled) {
             BELDEX_LOG(err, "Received signal {}, aborting startup", signalled.load());
             return EXIT_FAILURE;
