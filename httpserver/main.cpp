@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <variant>
 #include <vector>
 
 extern "C" {
@@ -43,44 +44,14 @@ int main(int argc, char* argv[]) {
     std::signal(SIGINT, handle_signal);
     std::signal(SIGTERM, handle_signal);
 
-    beldex::command_line_parser parser;
+    auto parsed = beldex::parse_cli_args(argc, argv);
+    if (auto* code = std::get_if<int>(&parsed))
+        return *code;
 
-    try {
-        parser.parse_args(argc, argv);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        parser.print_usage();
-        return EXIT_FAILURE;
-    }
+    auto& options = var::get<beldex::command_line_options>(parsed);
 
-    auto options = parser.get_options();
-
-    if (options.print_help) {
-        parser.print_usage();
-        return EXIT_SUCCESS;
-    }
-
-    if (options.print_version) {
-        std::cout << beldex::STORAGE_SERVER_VERSION_INFO;
-        return EXIT_SUCCESS;
-    }
-
-    std::filesystem::path data_dir;
-    if (options.data_dir.empty()) {
-        if (auto home_dir = util::get_home_dir()) {
-            data_dir = options.testnet
-                ? *home_dir / ".beldex" / "testnet" / "storage"
-                : *home_dir / ".beldex" / "storage";
-        } else {
-            std::cerr << "Could not determine your home directory; please use --data-dir to specify a data directory\n";
-            return EXIT_FAILURE;
-        }
-    } else {
-        data_dir = std::filesystem::u8path(options.data_dir);
-    }
-
-    if (!fs::exists(data_dir))
-        fs::create_directories(data_dir);
+    if (!fs::exists(options.data_dir))
+        fs::create_directories(options.data_dir);
 
     beldex::LogLevel log_level;
     if (!beldex::parse_log_level(options.log_level, log_level)) {
@@ -89,7 +60,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    beldex::init_logging(data_dir, log_level);
+    beldex::init_logging(options.data_dir, log_level);
 
     if (options.testnet) {
         beldex::is_mainnet = false;
@@ -112,7 +83,7 @@ int main(int argc, char* argv[]) {
     }
 
     BELDEX_LOG(info, "Setting log level to {}", options.log_level);
-    BELDEX_LOG(info, "Setting database location to {}", data_dir);
+    BELDEX_LOG(info, "Setting database location to {}", options.data_dir);
     BELDEX_LOG(info, "Connecting to beldexd @ {}", options.beldexd_omq_rpc);
 
     if (sodium_init() != 0) {
@@ -163,7 +134,7 @@ int main(int argc, char* argv[]) {
             return EXIT_FAILURE;
         }
 
-        mn_record me{"0.0.0.0", options.port, options.omq_port,
+        mn_record me{"0.0.0.0", options.https_port, options.omq_port,
                 private_key.pubkey(), private_key_ed25519.pubkey(), private_key_x25519.pubkey()};
 
         BELDEX_LOG(info, "Retrieved keys from beldexd; our MN pubkeys are:");
@@ -174,9 +145,9 @@ int main(int argc, char* argv[]) {
 
         ChannelEncryption channel_encryption{private_key_x25519, me.pubkey_x25519};
 
-        auto ssl_cert = data_dir / "cert.pem";
-        auto ssl_key = data_dir / "key.pem";
-        auto ssl_dh = data_dir / "dh.pem";
+        auto ssl_cert = options.data_dir / "cert.pem";
+        auto ssl_key = options.data_dir / "key.pem";
+        auto ssl_dh = options.data_dir / "dh.pem";
         if (!exists(ssl_cert) || !exists(ssl_key))
             generate_cert(ssl_cert, ssl_key);
         if (!exists(ssl_dh))
@@ -188,14 +159,14 @@ int main(int argc, char* argv[]) {
         auto& oxenmq_server = *oxenmq_server_ptr;
 
         MasterNode master_node{
-            me, private_key, oxenmq_server, data_dir, options.force_start};
+            me, private_key, oxenmq_server, options.data_dir, options.force_start};
 
         RequestHandler request_handler{master_node, channel_encryption, private_key_ed25519};
 
         RateLimiter rate_limiter{*oxenmq_server};
 
         HTTPSServer https_server{master_node, request_handler, rate_limiter,
-            {{options.ip, options.port, true}},
+            {{options.ip, options.https_port, true}},
             ssl_cert, ssl_key, ssl_dh,
             {me.pubkey_legacy, private_key}};
 

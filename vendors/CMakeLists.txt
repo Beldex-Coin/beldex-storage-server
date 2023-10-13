@@ -88,6 +88,7 @@ add_library(beldex-crypto-ops STATIC
   beldex/crypto-ops/hash-ops.c)
 target_include_directories(beldex-crypto-ops PUBLIC .)
 
+add_subdirectory(CLI11)
 
 # uSockets doesn't really have a proper build system (just a very simple Makefile) so build it
 # ourselves.
