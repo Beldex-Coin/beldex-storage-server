@@ -16,6 +16,7 @@ struct command_line_options {
     bool force_start = false;
     bool testnet = false;
     std::string log_level = "info";
+    std::filesystem::path data_dir;
     std::string beldexd_key; // test only (but needed for backwards compatibility)
     std::string beldexd_x25519_key;  // test only
     std::string beldexd_ed25519_key; // test only
