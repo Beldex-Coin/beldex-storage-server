@@ -26,4 +26,4 @@ inline bool operator!=(const mn_record& lhs, const mn_record& rhs) {
     return !(lhs == rhs);
 }
 
-}
+}  // namespace beldex

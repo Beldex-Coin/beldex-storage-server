@@ -3,11 +3,11 @@
 // This makes onion requests via storage servers.
 //
 // It has a whole bunch of deps (cpr, oxenmq, sodium, ssl, nlohmann); I compiled with the following,
-// using static cpr from an beldex build, SS assets built in ../build, and system-installed
+// using static cpr from an beldex-core build, SS assets built in ../build, and system-installed
 // libsodium/libssl/nlohmann/oxenmq:
 //
-//     g++ -std=c++17 -O2 onion-request.cpp -o onion-request ../../beldex/build/external/libcpr.a \
-//          -I../../beldex/external/cpr/include ../build/crypto/libcrypto.a -loxenmq -lsodium -lcurl -lcrypto
+//     g++ -std=c++17 -O2 onion-request.cpp -o onion-request ../../beldex-core/build/external/libcpr.a \
+//          -I../../beldex-core/external/cpr/include ../build/crypto/libcrypto.a -loxenmq -lsodium -lcurl -lcrypto
 //
 
 #include "../crypto/include/channel_encryption.hpp"
@@ -228,7 +228,7 @@ void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_
     //   node as the final hop, and means that the BLOB is actually JSON it should parse to get the
     //   request info (which has "method", "params", etc. in it).
     // - "host"/"target"/"port"/"protocol" asking for an HTTP or HTTPS proxy request to be made
-    //   (though "target" must start with /beldex/ or /beldex/ and end with /lsrpc).  (There is still a
+    //   (though "target" must start with /beldex/ and end with /lsrpc).  (There is still a
     //   blob here, but it is not used and typically empty).
     // - "destination" and "ephemeral_key" to forward the request to the next hop.
     //

@@ -13,8 +13,8 @@
 #include "omq_server.h"
 #include "request_handler.h"
 
-#include <sodium/core.h>
 #include <oxenmq/oxenmq.h>
+#include <sodium/core.h>
 
 #include <csignal>
 #include <cstdlib>
@@ -24,8 +24,8 @@
 #include <vector>
 
 extern "C" {
-#include <sys/types.h>
 #include <pwd.h>
+#include <sys/types.h>
 
 #ifdef ENABLE_SYSTEMD
 #include <systemd/sd-daemon.h>
@@ -64,17 +64,17 @@ int main(int argc, char* argv[]) {
 
     if (options.testnet) {
         beldex::is_mainnet = false;
-        BELDEX_LOG(warn,
-                 "Starting in testnet mode, make sure this is intentional!");
+        BELDEX_LOG(warn, "Starting in testnet mode, make sure this is intentional!");
     }
 
     // Always print version for the logs
     BELDEX_LOG(info, "{}", beldex::STORAGE_SERVER_VERSION_INFO);
 
     if (options.ip == "127.0.0.1") {
-        BELDEX_LOG(critical,
-                 "Tried to bind beldex-storage to localhost, please bind "
-                 "to outward facing address");
+        BELDEX_LOG(
+                critical,
+                "Tried to bind beldex-storage to localhost, please bind "
+                "to outward facing address");
         return EXIT_FAILURE;
     }
 
@@ -105,23 +105,27 @@ int main(int argc, char* argv[]) {
             BELDEX_LOG(info, "Stats access key: {}", key);
         }
 
-
         const auto [private_key, private_key_ed25519, private_key_x25519] =
-            get_mn_privkeys(options.beldexd_omq_rpc, [] { return signalled == 0; });
-            
+                get_mn_privkeys(options.beldexd_omq_rpc, [] { return signalled == 0; });
+
         if (signalled) {
             BELDEX_LOG(err, "Received signal {}, aborting startup", signalled.load());
             return EXIT_FAILURE;
         }
 
-        mn_record me{"0.0.0.0", options.https_port, options.omq_port,
-                private_key.pubkey(), private_key_ed25519.pubkey(), private_key_x25519.pubkey()};
+        mn_record me{
+                "0.0.0.0",
+                options.https_port,
+                options.omq_port,
+                private_key.pubkey(),
+                private_key_ed25519.pubkey(),
+                private_key_x25519.pubkey()};
 
         BELDEX_LOG(info, "Retrieved keys from beldexd; our MN pubkeys are:");
         BELDEX_LOG(info, "- legacy:  {}", me.pubkey_legacy);
         BELDEX_LOG(info, "- ed25519: {}", me.pubkey_ed25519);
         BELDEX_LOG(info, "- x25519:  {}", me.pubkey_x25519);
-        BELDEX_LOG(info, "- beldexnet: {}", me.pubkey_ed25519.mnode_address());
+        BELDEX_LOG(info, "- belnet: {}", me.pubkey_ed25519.mnode_address());
 
         ChannelEncryption channel_encryption{private_key_x25519, me.pubkey_x25519};
 
@@ -135,32 +139,42 @@ int main(int argc, char* argv[]) {
 
         // Set up oxenmq now, but don't actually start it until after we set up the MasterNode
         // instance (because MasterNode and OxenmqServer reference each other).
-        auto oxenmq_server_ptr = std::make_unique<OxenmqServer>(me, private_key_x25519, stats_access_keys);
+        auto oxenmq_server_ptr =
+                std::make_unique<OxenmqServer>(me, private_key_x25519, stats_access_keys);
         auto& oxenmq_server = *oxenmq_server_ptr;
 
         MasterNode master_node{
-            me, private_key, oxenmq_server, options.data_dir, options.force_start};
+                me, private_key, oxenmq_server, options.data_dir, options.force_start};
 
         RequestHandler request_handler{master_node, channel_encryption, private_key_ed25519};
 
         RateLimiter rate_limiter{*oxenmq_server};
 
-        HTTPSServer https_server{master_node, request_handler, rate_limiter,
-            {{options.ip, options.https_port, true}},
-            ssl_cert, ssl_key, ssl_dh,
-            {me.pubkey_legacy, private_key}};
+        HTTPSServer https_server{
+                master_node,
+                request_handler,
+                rate_limiter,
+                {{options.ip, options.https_port, true}},
+                ssl_cert,
+                ssl_key,
+                ssl_dh,
+                {me.pubkey_legacy, private_key}};
 
-
-        oxenmq_server.init(&master_node, &request_handler, &rate_limiter,
+        oxenmq_server.init(
+                &master_node,
+                &request_handler,
+                &rate_limiter,
                 oxenmq::address{options.beldexd_omq_rpc});
 
         https_server.start();
 
 #ifdef ENABLE_SYSTEMD
         sd_notify(0, "READY=1");
-        oxenmq_server->add_timer([&master_node] {
-            sd_notify(0, ("WATCHDOG=1\nSTATUS=" + master_node.get_status_line()).c_str());
-        }, 10s);
+        oxenmq_server->add_timer(
+                [&master_node] {
+                    sd_notify(0, ("WATCHDOG=1\nSTATUS=" + master_node.get_status_line()).c_str());
+                },
+                10s);
 #endif
 
         // Log general stats at startup and again every hour

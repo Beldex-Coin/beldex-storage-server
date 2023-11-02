@@ -13,19 +13,20 @@ namespace beldex {
 using namespace std::literals;
 
 namespace detail {
+    template <size_t Length>
+    inline constexpr std::array<unsigned char, Length> null_bytes = {0};
 
-template <size_t Length>
-inline constexpr std::array<unsigned char, Length> null_bytes = {0};
+    void load_from_hex(void* buffer, size_t length, std::string_view hex);
+    void load_from_bytes(void* buffer, size_t length, std::string_view bytes);
+    std::string to_hex(const unsigned char* buffer, size_t length);
 
-void load_from_hex(void* buffer, size_t length, std::string_view hex);
-void load_from_bytes(void* buffer, size_t length, std::string_view bytes);
-std::string to_hex(const unsigned char* buffer, size_t length);
-
-} // namespace detail
+}  // namespace detail
 
 template <typename Derived, size_t KeyLength>
 struct alignas(size_t) key_base : std::array<unsigned char, KeyLength> {
-    std::string_view view() const { return {reinterpret_cast<const char*>(this->data()), KeyLength}; }
+    std::string_view view() const {
+        return {reinterpret_cast<const char*>(this->data()), KeyLength};
+    }
     std::string hex() const { return detail::to_hex(this->data(), KeyLength); }
     explicit operator bool() const { return *this != detail::null_bytes<KeyLength>; }
 
@@ -37,8 +38,10 @@ struct alignas(size_t) key_base : std::array<unsigned char, KeyLength> {
     }
     // Same as above, but returns nullopt if invalid instead of throwing
     static std::optional<Derived> maybe_from_hex(std::string_view hex) {
-        try { return from_hex(hex); }
-        catch (...) {}
+        try {
+            return from_hex(hex);
+        } catch (...) {
+        }
         return std::nullopt;
     }
     // Loads the key from a byte string; throws if the wrong size.
@@ -62,9 +65,15 @@ struct ed25519_pubkey : pubkey_base<ed25519_pubkey, 32> {
 };
 
 // Converts pubkey to a hex string when outputting.
-inline std::ostream& operator<<(std::ostream& o, const legacy_pubkey& pk) { return o << pk.hex(); }
-inline std::ostream& operator<<(std::ostream& o, const x25519_pubkey& pk) { return o << pk.hex(); }
-inline std::ostream& operator<<(std::ostream& o, const ed25519_pubkey& pk) { return o << pk.hex(); }
+inline std::ostream& operator<<(std::ostream& o, const legacy_pubkey& pk) {
+    return o << pk.hex();
+}
+inline std::ostream& operator<<(std::ostream& o, const x25519_pubkey& pk) {
+    return o << pk.hex();
+}
+inline std::ostream& operator<<(std::ostream& o, const ed25519_pubkey& pk) {
+    return o << pk.hex();
+}
 
 template <typename Derived, size_t KeyLength>
 struct seckey_base : key_base<Derived, KeyLength> {};
@@ -90,22 +99,25 @@ legacy_pubkey parse_legacy_pubkey(std::string_view pubkey_in);
 ed25519_pubkey parse_ed25519_pubkey(std::string_view pubkey_in);
 x25519_pubkey parse_x25519_pubkey(std::string_view pubkey_in);
 
-
-} // namespace beldex
+}  // namespace beldex
 
 namespace std {
 
 template <typename Derived, size_t N>
 struct hash<beldex::pubkey_base<Derived, N>> {
     size_t operator()(const beldex::pubkey_base<Derived, N>& pk) const {
-        // pubkeys are already random enough to use the first bytes directly as a good (and fast) hash value
+        // pubkeys are already random enough to use the first bytes directly as a good (and
+        // fast) hash value
         static_assert(alignof(decltype(pk)) >= alignof(size_t));
         return *reinterpret_cast<const size_t*>(pk.data());
     }
 };
 
-template <> struct hash<beldex::legacy_pubkey> : hash<beldex::legacy_pubkey::PubKeyBase> {};
-template <> struct hash<beldex::x25519_pubkey> : hash<beldex::x25519_pubkey::PubKeyBase> {};
-template <> struct hash<beldex::ed25519_pubkey> : hash<beldex::ed25519_pubkey::PubKeyBase> {};
+template <>
+struct hash<beldex::legacy_pubkey> : hash<beldex::legacy_pubkey::PubKeyBase> {};
+template <>
+struct hash<beldex::x25519_pubkey> : hash<beldex::x25519_pubkey::PubKeyBase> {};
+template <>
+struct hash<beldex::ed25519_pubkey> : hash<beldex::ed25519_pubkey::PubKeyBase> {};
 
-}
+}  // namespace std
