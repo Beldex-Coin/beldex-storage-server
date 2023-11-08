@@ -34,7 +34,7 @@ static ec_scalar monero_hash_to_scalar(const void* input, size_t size) {
     // We're trying to be backwards compatible with Monero's approach here, which is to
     // calculate H mod L from a 32-byte H.  sodium reduces a 64-byte value, however, so will
     // fill it with 0s to get the same result.  (This is crappy, but to use a 64-byte hash would
-    // break backwards compatibility).
+    // break backwards compatibility)
     unsigned char hash[64] = {0};
     cn_fast_hash(input, size, reinterpret_cast<char*>(hash));
     ec_scalar result;

@@ -18,7 +18,7 @@ namespace beldex {
 
 namespace {
     // Derive shared secret from our (ephemeral) `seckey` and the other party's
-    // `pubkey`
+    // `pubkey`.
     std::array<uint8_t, crypto_scalarmult_BYTES> calculate_shared_secret(
             const x25519_seckey& seckey, const x25519_pubkey& pubkey) {
         std::array<uint8_t, crypto_scalarmult_BYTES> secret;

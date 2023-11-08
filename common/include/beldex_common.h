@@ -10,7 +10,7 @@ namespace beldex {
 using namespace std::literals;
 
 // Network byte + Ed25519 pubkey, encoded in bytes or hex.  On testnet we allow the network byte
-// to be missing (and treat it as an implicit 00).
+// to be missing (treat it as an implicit 00).
 inline constexpr size_t USER_PUBKEY_SIZE_BYTES = 33;
 inline constexpr size_t USER_PUBKEY_SIZE_HEX = USER_PUBKEY_SIZE_BYTES * 2;
 

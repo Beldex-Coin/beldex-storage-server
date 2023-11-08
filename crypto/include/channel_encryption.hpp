@@ -16,7 +16,7 @@ enum class EncryptType {
 
 // Takes the encryption type as a string, returns the EncryptType value (or throws if invalid).
 // Supported values: aes-gcm, aes-cbc, xchacha20.  gcm and cbc are accepted as aliases for the
-// aes- version.
+// aes-version.
 EncryptType parse_enc_type(std::string_view enc_type);
 
 inline constexpr std::string_view to_string(EncryptType type) {
