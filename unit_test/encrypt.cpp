@@ -2,20 +2,22 @@
 #include <iostream>
 #include <ostream>
 
-#include "channel_encryption.hpp"
-#include "beldexd_key.h"
+#include <beldexss/crypto/channel_encryption.hpp>
+#include <beldexss/crypto/keys.h>
 
-namespace beldex {
+using namespace std::literals;
+using namespace beldex::crypto;
+
 constexpr auto plaintext_data = "Grumpy cat says no!"sv;
 
-const auto alice_pubkey = beldex::x25519_pubkey::from_hex(
-        "01c7391664840b2ef7126b3709dbac178ba5f3ef2335a62343d5df7da4a11c30");
-const auto alice_seckey = beldex::x25519_seckey::from_hex(
-        "7d446468c186d6fb3c83365ab77a37b1f9fa3e59eb9788a40ae2e9560f196f30");
-const auto bob_pubkey = beldex::x25519_pubkey::from_hex(
-        "f7b99da2e25e3c399902641c707ae20ad72b63ed0cc487730ff0b3bcecf18609");
-const auto bob_seckey = beldex::x25519_seckey::from_hex(
-        "f512f68e81a932aa2ff6d8723baa260a43a6f789d61c91b71f73e4f284e3600a");
+const auto alice_pubkey =
+        x25519_pubkey::from_hex("01c7391664840b2ef7126b3709dbac178ba5f3ef2335a62343d5df7da4a11c30");
+const auto alice_seckey =
+        x25519_seckey::from_hex("7d446468c186d6fb3c83365ab77a37b1f9fa3e59eb9788a40ae2e9560f196f30");
+const auto bob_pubkey =
+        x25519_pubkey::from_hex("f7b99da2e25e3c399902641c707ae20ad72b63ed0cc487730ff0b3bcecf18609");
+const auto bob_seckey =
+        x25519_seckey::from_hex("f512f68e81a932aa2ff6d8723baa260a43a6f789d61c91b71f73e4f284e3600a");
 
 TEST_CASE("AES-CBC encryption", "[encrypt][cbc]") {
     ChannelEncryption alice_box{alice_seckey, alice_pubkey};
@@ -89,5 +91,3 @@ TEST_CASE("XChaCha20-Poly1309 encryption", "[encrypt][xchacha20]") {
 
     CHECK_THROWS_AS(alice_server.decrypt_xchacha20(ctext_alice, bob_pubkey), std::runtime_error);
 }
-
-}  // namespace beldex

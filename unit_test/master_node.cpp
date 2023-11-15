@@ -1,21 +1,22 @@
 #include <catch2/catch.hpp>
 #include <iostream>
 
-#include "beldexd_key.h"
-#include "request_handler.h"
-#include "swarm.h"
-#include "time.hpp"
+#include <beldexss/crypto/keys.h>
+#include <beldexss/rpc/request_handler.h>
+#include <beldexss/mnode/swarm.h>
+#include <beldexss/utils/time.hpp>
 
 #include <oxenc/base64.h>
 
 using namespace std::literals;
+using namespace beldex::crypto;
 
-static auto create_dummy_mn_record() -> beldex::mn_record {
-    const auto pk = beldex::legacy_pubkey::from_hex(
+static beldex::mnode::mn_record create_dummy_mn_record() {
+    const auto pk = legacy_pubkey::from_hex(
             "330e73449f6656cfe7816fa00d850af1f45884eab9e404026ca51f54b045e385");
-    const auto pk_x25519 = beldex::x25519_pubkey::from_hex(
+    const auto pk_x25519 = x25519_pubkey::from_hex(
             "66ab11bed0e6219e1f3aea9b9e33f89cf636d5db203ed4efb9090cdb15902414");
-    const auto pk_ed25519 = beldex::ed25519_pubkey::from_hex(
+    const auto pk_ed25519 = ed25519_pubkey::from_hex(
             "a38418ae9af2fedb560f400953f91cefb91a7a7efc971edfa31744ce5c4e319a");
     const std::string ip = "0.0.0.0";
 
@@ -24,34 +25,34 @@ static auto create_dummy_mn_record() -> beldex::mn_record {
 
 using ip_ports = std::tuple<const char*, uint16_t, uint16_t>;
 
-static auto test_ip_update(ip_ports old_addr, ip_ports new_addr, ip_ports expected) -> void {
-    using beldex::mn_record;
+static void test_ip_update(ip_ports old_addr, ip_ports new_addr, ip_ports expected) {
+    using beldex::mnode::mn_record;
 
     auto mn = create_dummy_mn_record();
 
     std::tie(mn.ip, mn.port, mn.omq_port) = old_addr;
 
-    beldex::SwarmInfo si{0, std::vector<mn_record>{mn}};
-    auto current = std::vector<beldex::SwarmInfo>{si};
+    beldex::mnode::SwarmInfo si{0, std::vector<mn_record>{mn}};
+    std::vector<beldex::mnode::SwarmInfo> current{{si}};
 
     std::tie(mn.ip, mn.port, mn.omq_port) = new_addr;
 
-    beldex::SwarmInfo si2{0, std::vector<mn_record>{mn}};
-    auto incoming = std::vector<beldex::SwarmInfo>{si2};
+    beldex::mnode::SwarmInfo si2{0, std::vector<mn_record>{mn}};
+    std::vector<beldex::mnode::SwarmInfo> incoming{{si2}};
 
-    auto new_records = apply_ips(current, incoming);
+    preserve_ips(incoming, current);
 
-    CHECK(new_records[0].mnodes[0].ip == std::get<0>(expected));
-    CHECK(new_records[0].mnodes[0].port == std::get<1>(expected));
-    CHECK(new_records[0].mnodes[0].omq_port == std::get<2>(expected));
+    CHECK(incoming[0].mnodes[0].ip == std::get<0>(expected));
+    CHECK(incoming[0].mnodes[0].port == std::get<1>(expected));
+    CHECK(incoming[0].mnodes[0].omq_port == std::get<2>(expected));
 }
 
 TEST_CASE("master nodes - updates IP address", "[master-nodes][updates]") {
     auto mn = create_dummy_mn_record();
 
-    const auto default_ip = ip_ports{"0.0.0.0", 0, 0};
-    const auto ip1 = ip_ports{"1.1.1.1", 123, 456};
-    const auto ip2 = ip_ports{"1.2.3.4", 123, 456};
+    const ip_ports default_ip{"0.0.0.0", 0, 0};
+    const ip_ports ip1{"1.1.1.1", 123, 456};
+    const ip_ports ip2{"1.2.3.4", 123, 456};
 
     // Should update
     test_ip_update(ip1, ip2, ip2);
@@ -65,7 +66,7 @@ TEST_CASE("master nodes - updates IP address", "[master-nodes][updates]") {
 
 /// Check that we don't inadvertently change how we compute message hashes
 TEST_CASE("master nodes - message hashing", "[master-nodes][messages]") {
-    const auto timestamp = std::chrono::system_clock::time_point{1616650862026ms};
+    const std::chrono::system_clock::time_point timestamp{1616650862026ms};
     const auto expiry = timestamp + 48h;
     beldex::user_pubkey_t pk;
     REQUIRE(pk.load("bdffba630924aa1224bb930dde21c0d11bf004608f2812217f8ac812d6c7e3ad48"));
@@ -77,22 +78,7 @@ TEST_CASE("master nodes - message hashing", "[master-nodes][messages]") {
             "d9+vvm7X+8vh+jIenJfjxf+8CWER+9adNfb4YUH07I+godNCV0O0J05gzqfKdT7J8MBZzFBtKrbk8oCagPpTs"
             "q/wZyYFKFKKD+q+zh704dYBILvs5yXUA96pIAA=");
 
-    auto expected = "rY7K5YXNsg7d8LBP6R4OoOr6L7IMFxa3Tr8ca5v5nBI";
-    CHECK(computeMessageHash(timestamp, expiry, pk, data) == expected);
-    CHECK(beldex::compute_hash_blake2b_b64(
-                  {std::to_string(beldex::to_epoch_ms(timestamp))
-                   + std::to_string(beldex::to_epoch_ms(expiry)) + pk.prefixed_raw() + data})
-          == expected);
-}
-
-TEST_CASE("master nodes - pubkey to swarm id") {
-    beldex::user_pubkey_t pk;
-    REQUIRE(pk.load("bdffba630924aa1224bb930dde21c0d11bf004608f2812217f8ac812d6c7e3ad48"));
-    CHECK(pubkey_to_swarm_space(pk) == 4532060000165252872ULL);
-
-    REQUIRE(pk.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
-    CHECK(pubkey_to_swarm_space(pk) == 0);
-
-    REQUIRE(pk.load("bd0000000000000000000000000000000000000000000000000123456789abcdef"));
-    CHECK(pubkey_to_swarm_space(pk) == 0x0123456789abcdefULL);
+    auto expected = "4sMyAuaZlMwww3oFvfhazfw7ASx/7TDtO+TVc8aAjHs";
+    CHECK(beldex::rpc::computeMessageHash(pk, beldex::namespace_id::Default, data) == expected);
+    CHECK(beldex::rpc::compute_hash_blake2b_b64({pk.prefixed_raw() + data}) == expected);
 }

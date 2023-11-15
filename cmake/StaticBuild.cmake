@@ -5,19 +5,11 @@
 
 set(LOCAL_MIRROR "" CACHE STRING "local mirror path/URL for lib downloads")
 
-set(OPENSSL_VERSION 3.0.2 CACHE STRING "openssl version")
+set(OPENSSL_VERSION 3.0.7 CACHE STRING "openssl version")
 set(OPENSSL_MIRROR ${LOCAL_MIRROR} https://www.openssl.org/source CACHE STRING "openssl download mirror(s)")
 set(OPENSSL_SOURCE openssl-${OPENSSL_VERSION}.tar.gz)
-set(OPENSSL_HASH SHA256=98e91ccead4d4756ae3c9cde5e09191a8e586d9f4d50838e7ec09d6411dfdb63
+set(OPENSSL_HASH SHA256=83049d042a260e696f62406ac5c08bf706fd84383f945cf21bd61e9ed95c396e
     CACHE STRING "openssl source hash")
-
-set(BOOST_VERSION 1.78.0 CACHE STRING "boost version")
-set(BOOST_MIRROR ${LOCAL_MIRROR} https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source
-    CACHE STRING "boost download mirror(s)")
-string(REPLACE "." "_" BOOST_VERSION_ ${BOOST_VERSION})
-set(BOOST_SOURCE boost_${BOOST_VERSION_}.tar.bz2)
-set(BOOST_HASH SHA256=8681f175d4bdb26c52222665793eef08490d7758529330f98d3b29dd0735bccc
-    CACHE STRING "boost source hash")
 
 set(SODIUM_VERSION 1.0.18 CACHE STRING "libsodium version")
 set(SODIUM_MIRROR ${LOCAL_MIRROR}
@@ -37,25 +29,25 @@ set(ZMQ_SOURCE zeromq-${ZMQ_VERSION}.tar.gz)
 set(ZMQ_HASH SHA512=e198ef9f82d392754caadd547537666d4fba0afd7d027749b3adae450516bcf284d241d4616cad3cb4ad9af8c10373d456de92dc6d115b037941659f141e7c0e
     CACHE STRING "libzmq source hash")
 
-set(LIBUV_VERSION 1.41.0 CACHE STRING "libuv version")
+set(LIBUV_VERSION 1.44.2 CACHE STRING "libuv version")
 set(LIBUV_MIRROR ${LOCAL_MIRROR} https://dist.libuv.org/dist/v${LIBUV_VERSION}
     CACHE STRING "libuv mirror(s)")
 set(LIBUV_SOURCE libuv-v${LIBUV_VERSION}.tar.gz)
-set(LIBUV_HASH SHA512=33613fa28e8136507300eba374351774849b6b39aab4e53c997a918d3bc1d1094c6123e0e509535095b14dc5daa885eadb1a67bed46622ad3cc79d62dc817e84
+set(LIBUV_HASH SHA512=91197ff9303112567bbb915bbb88058050e2ad1c048815a3b57c054635d5dc7df458b956089d785475290132236cb0edcfae830f5d749de29a9a3213eeaf0b20
     CACHE STRING "libuv source hash")
 
-set(ZLIB_VERSION 1.2.12 CACHE STRING "zlib version")
+set(ZLIB_VERSION 1.2.13 CACHE STRING "zlib version")
 set(ZLIB_MIRROR ${LOCAL_MIRROR} https://zlib.net
     CACHE STRING "zlib mirror(s)")
-set(ZLIB_SOURCE zlib-${ZLIB_VERSION}.tar.gz)
-set(ZLIB_HASH SHA512=cc2366fa45d5dfee1f983c8c51515e0cff959b61471e2e8d24350dea22d3f6fcc50723615a911b046ffc95f51ba337d39ae402131a55e6d1541d3b095d6c0a14
+set(ZLIB_SOURCE zlib-${ZLIB_VERSION}.tar.xz)
+set(ZLIB_HASH SHA256=d14c38e313afc35a9a8760dadf26042f51ea0f5d154b0630a31da0540107fb98
     CACHE STRING "zlib source hash")
 
-set(CURL_VERSION 7.82.0 CACHE STRING "curl version")
+set(CURL_VERSION 7.87.0 CACHE STRING "curl version")
 set(CURL_MIRROR ${LOCAL_MIRROR} https://curl.se/download https://curl.askapache.com
     CACHE STRING "curl mirror(s)")
 set(CURL_SOURCE curl-${CURL_VERSION}.tar.xz)
-set(CURL_HASH SHA256=0aaa12d7bd04b0966254f2703ce80dd5c38dbbd76af0297d3d690cdce58a583c
+set(CURL_HASH SHA512=aa125991592667280dce3788aabe81487cf8c55b0afc59d675cc30b76055bb7114f5380b4a0e3b6461a8f81bf9812fa26d493a85f7e01d84263d484a0d699ee7
     CACHE STRING "curl source hash")
 
 
@@ -223,79 +215,8 @@ build_external(openssl
 )
 add_static_target(OpenSSL::SSL openssl_external libssl.a)
 add_static_target(OpenSSL::Crypto openssl_external libcrypto.a)
+target_link_libraries(OpenSSL::SSL INTERFACE OpenSSL::Crypto)
 set(OPENSSL_INCLUDE_DIR ${DEPS_DESTDIR}/include)
-
-
-
-set(boost_threadapi "pthread")
-set(boost_bootstrap_cxx "--cxx=${deps_cxx}")
-set(boost_toolset "")
-set(boost_extra "")
-if(USE_LTO)
-  list(APPEND boost_extra "lto=on")
-endif()
-if(CMAKE_CROSSCOMPILING)
-  set(boost_bootstrap_cxx "") # need to use our native compiler to bootstrap
-  if(ARCH_TRIPLET MATCHES mingw)
-    set(boost_threadapi win32)
-    list(APPEND boost_extra "target-os=windows")
-    if(ARCH_TRIPLET MATCHES x86_64)
-      list(APPEND boost_extra "address-model=64")
-    else()
-      list(APPEND boost_extra "address-model=32")
-    endif()
-  endif()
-endif()
-if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
-  set(boost_toolset gcc)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Apple)?Clang$")
-  set(boost_toolset clang)
-else()
-  message(FATAL_ERROR "don't know how to build boost with ${CMAKE_CXX_COMPILER_ID}")
-endif()
-
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/user-config.bjam "using ${boost_toolset} : : ${deps_cxx} ;")
-
-set(boost_buildflags "cxxflags=-fPIC")
-if(APPLE AND CMAKE_OSX_DEPLOYMENT_TARGET)
-  string(APPEND boost_buildflags " -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}" "cflags=-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-endif()
-
-set(boost_libs program_options)
-set(boost_with_libs_extra)
-string(REPLACE ";" "," boost_with_libraries "${boost_libs}")
-set(boost_static_libraries)
-foreach(lib ${boost_libs})
-    list(APPEND boost_static_libraries "${DEPS_DESTDIR}/lib/libboost_${lib}.a")
-endforeach()
-
-build_external(boost
-  #  PATCH_COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/user-config.bjam tools/build/src/user-config.jam
-  CONFIGURE_COMMAND
-    ./tools/build/src/engine/build.sh ${boost_toolset} ${boost_bootstrap_cxx}
-  BUILD_COMMAND
-    cp tools/build/src/engine/b2 .
-  INSTALL_COMMAND
-    ./b2 -d0 variant=release link=static runtime-link=static optimization=speed ${boost_extra}
-      threading=multi threadapi=${boost_threadapi} ${boost_buildflags} cxxstd=17 visibility=global
-      --disable-icu --user-config=${CMAKE_CURRENT_BINARY_DIR}/user-config.bjam
-      --prefix=${DEPS_DESTDIR} --exec-prefix=${DEPS_DESTDIR} --libdir=${DEPS_DESTDIR}/lib --includedir=${DEPS_DESTDIR}/include
-      --with-program_options --with-system ${boost_with_libs_extra}
-      install
-  BUILD_BYPRODUCTS
-    ${boost_static_libraries}
-    ${DEPS_DESTDIR}/include/boost/version.hpp
-)
-add_library(boost_core INTERFACE)
-add_dependencies(boost_core INTERFACE boost_external)
-target_include_directories(boost_core SYSTEM INTERFACE ${DEPS_DESTDIR}/include)
-add_library(Boost::boost ALIAS boost_core)
-foreach(boostlib ${boost_libs})
-  add_static_target(Boost::${boostlib} boost_external libboost_${boostlib}.a)
-  target_link_libraries(Boost::${boostlib} INTERFACE boost_core)
-endforeach()
-set(Boost_FOUND ON)
-set(Boost_VERSION ${BOOST_VERSION})
 
 
 
@@ -340,11 +261,11 @@ set_target_properties(libzmq PROPERTIES
 
 set(curl_extra)
 if(WIN32)
-  set(curl_ssl_opts --without-ssl --with-schannel)
+  set(curl_ssl_opts --with-schannel)
 elseif(APPLE)
-  set(curl_ssl_opts --without-ssl --with-secure-transport)
+  set(curl_ssl_opts --with-secure-transport)
 else()
-  set(curl_ssl_opts --with-ssl=${DEPS_DESTDIR})
+  set(curl_ssl_opts --with-openssl=${DEPS_DESTDIR})
   set(curl_extra "LIBS=-pthread")
 endif()
 
@@ -359,7 +280,8 @@ build_external(curl
   --enable-http-auth --enable-doh --disable-mime --enable-dateparse --disable-netrc --without-libidn2
   --disable-progress-meter --without-brotli --with-zlib=${DEPS_DESTDIR} ${curl_ssl_opts}
   --without-librtmp --disable-versioned-symbols --enable-hidden-symbols
-  --without-zsh-functions-dir --without-fish-functions-dir
+  --without-zsh-functions-dir --without-fish-functions-dir --without-zstd
+  --without-nghttp2 --without-nghttp3 --without-ngtcp2 --without-quiche
   "CC=${deps_cc}" "CFLAGS=${deps_noarch_CFLAGS}${cflags_extra}" ${curl_extra}
   BUILD_COMMAND true
   INSTALL_COMMAND make -C lib install && make -C include install
@@ -369,7 +291,7 @@ build_external(curl
 )
 
 add_static_target(CURL::libcurl curl_external libcurl.a)
-set(libcurl_link_libs zlib)
+set(libcurl_link_libs OpenSSL::SSL zlib)
 if(CMAKE_CROSSCOMPILING AND ARCH_TRIPLET MATCHES mingw)
   list(APPEND libcurl_link_libs crypt32)
 elseif(APPLE)

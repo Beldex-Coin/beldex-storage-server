@@ -2,9 +2,11 @@
 #include <iostream>
 #include <ostream>
 
-#include "onion_processing.h"
+#include <beldexss/rpc/onion_processing.h>
 
-using namespace beldex;
+using namespace beldex::rpc;
+using namespace beldex::crypto;
+using namespace std::literals;
 
 constexpr const char* ciphertext = "ciphertext";
 const auto prefix = "\x0a\0\0\0ciphertext"s;
@@ -89,7 +91,7 @@ TEST_CASE("onion request - relay to mnode", "[onion][mnode]") {
 
 TEST_CASE("onion request - url target filtering", "[onion][relay]") {
     CHECK(is_onion_url_target_allowed("/beldex/v3/lsrpc"));
-    CHECK(is_onion_url_target_allowed("/beldex/beldex/v4/lsrpc"));
+    CHECK(is_onion_url_target_allowed("/beldex/v4/lsrpc"));
     CHECK(is_onion_url_target_allowed("/beldex/v3/lsrpc"));
 
     CHECK_FALSE(is_onion_url_target_allowed("/not_beldex/v3/lsrpc"));

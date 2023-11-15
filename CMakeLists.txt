@@ -10,9 +10,9 @@ if(CCACHE_PROGRAM)
   endforeach()
 endif()
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
-project(storage_server
+project(beldexss
     VERSION 2.2.1
     LANGUAGES CXX C)
 
@@ -72,13 +72,13 @@ else()
   endfunction ()
 
   message(STATUS "Checking submodules")
-  check_submodule(vendors/spdlog)
-  check_submodule(vendors/oxenc)
-  check_submodule(vendors/oxen-mq cppzmq)
-  check_submodule(vendors/nlohmann_json)
-  check_submodule(vendors/uWebSockets uSockets)
-  check_submodule(vendors/cpr)
-  check_submodule(vendors/CLI11)
+  check_submodule(external/oxenc)
+  check_submodule(external/oxen-mq cppzmq)
+  check_submodule(external/oxen-logging fmt spdlog)
+  check_submodule(external/nlohmann_json)
+  check_submodule(external/uWebSockets uSockets)
+  check_submodule(external/cpr)
+  check_submodule(external/CLI11)
   if(BUILD_TESTS)
     check_submodule(unit_test/Catch2)
   endif()
@@ -100,16 +100,18 @@ link_libatomic()
 
 include(cmake/check_for_std_filesystem.cmake)
 
-add_subdirectory(common)
-add_subdirectory(utils)
-add_subdirectory(crypto)
-add_subdirectory(storage)
-add_subdirectory(httpserver)
+add_subdirectory(external)
 
-add_subdirectory(vendors)
+add_subdirectory(beldexss)
+
 
 if (BUILD_TESTS)
     add_subdirectory(unit_test)
 endif ()
+
+add_executable(onion-request EXCLUDE_FROM_ALL contrib/onion-request.cpp)
+set_target_properties(onion-request PROPERTIES RUNTIME_OUTPUT_DIRECTORY contrib)
+target_link_libraries(onion-request common crypto cpr::cpr oxenmq::oxenmq)
+target_include_directories(onion-request PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(cmake/archive.cmake)

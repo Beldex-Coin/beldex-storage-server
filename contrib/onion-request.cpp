@@ -6,12 +6,13 @@
 // using static cpr from an beldex-core build, SS assets built in ../build, and system-installed
 // libsodium/libssl/nlohmann/oxenmq:
 //
-//     g++ -std=c++17 -O2 onion-request.cpp -o onion-request ../../beldex-core/build/external/libcpr.a \
-//          -I../../beldex-core/external/cpr/include ../build/crypto/libcrypto.a -loxenmq -lsodium -lcurl -lcrypto
+//     g++ -std=c++17 -O2 onion-request.cpp -o onion-request ../../beldex/build/external/libcpr.a \
+//          -I../../beldex/external/cpr/include ../build/crypto/libcrypto.a -loxenmq -lsodium -lcurl -lcrypto
 //
 
-#include "../crypto/include/channel_encryption.hpp"
-#include "cpr/cpr.h"
+#include <beldexss/crypto/channel_encryption.hpp>
+#include <beldexss/crypto/keys.h>
+#include <cpr/cpr.h>
 #include <chrono>
 #include <exception>
 #include <iostream>
@@ -26,7 +27,10 @@ extern "C" {
 #include <sys/param.h>
 }
 
+using namespace std::literals;
+
 using namespace beldex;
+using namespace beldex::crypto;
 
 int usage(std::string_view argv0, std::string_view err = "") {
     if (!err.empty())
@@ -67,7 +71,7 @@ Both PAYLOAD and CONTROL may be passed filenames to read prefixed with `@` (for 
     return 1;
 }
 
-const oxenmq::address TESTNET_OMQ{"tcp://54.80.140.73:19091/"};
+const oxenmq::address TESTNET_OMQ{"tcp://54.80.140.73:19091"};
 const oxenmq::address MAINNET_OMQ{"tcp://public.beldex.io:29091"};
 
 void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_pubkey, x25519_pubkey>> keys,
@@ -132,8 +136,8 @@ int main(int argc, char** argv) {
                 throw std::runtime_error{"get_master_nodes request failed: " + data[0]};
 
             auto json = nlohmann::json::parse(data[1]);
-            auto mns = json.at("master_node_states");
-            for (auto& mn : mns) {
+            auto bns = json.at("master_node_states");
+            for (auto& mn : bns) {
                 auto& pk = mn.at("master_node_pubkey").get_ref<const std::string&>();
                 auto& e = mn.at("pubkey_ed25519").get_ref<const std::string&>();
                 auto& x = mn.at("pubkey_x25519").get_ref<const std::string&>();
@@ -228,7 +232,7 @@ void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_
     //   node as the final hop, and means that the BLOB is actually JSON it should parse to get the
     //   request info (which has "method", "params", etc. in it).
     // - "host"/"target"/"port"/"protocol" asking for an HTTP or HTTPS proxy request to be made
-    //   (though "target" must start with /beldex/ and end with /lsrpc).  (There is still a
+    //   (though "target" must start with /beldex/ or /beldex/ and end with /lsrpc).  (There is still a
     //   blob here, but it is not used and typically empty).
     // - "destination" and "ephemeral_key" to forward the request to the next hop.
     //
@@ -262,7 +266,7 @@ void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_
     auto it = keys.rbegin();
     {
         crypto_box_keypair(A.data(), a.data());
-        beldex::ChannelEncryption e{a, A, false};
+        ChannelEncryption e{a, A, false};
 
         auto data = encode_size(payload.size());
         data += payload;
@@ -290,7 +294,7 @@ void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_
 
         // Generate eph key for *this* request and encrypt it:
         crypto_box_keypair(A.data(), a.data());
-        beldex::ChannelEncryption e{a, A, false};
+        ChannelEncryption e{a, A, false};
         last_etype = enc_type.value_or(random_etype());
 
 #ifndef NDEBUG
@@ -325,7 +329,7 @@ void onion_request(std::string ip, uint16_t port, std::vector<std::pair<ed25519_
     // Nothing in the response tells us how it is encoded so we have to guess; the client normally
     // *does* know because it specifies `"base64": false` if it wants binary, but I don't want to
     // parse and guess what we should do, so we'll just guess.
-    beldex::ChannelEncryption d{final_seckey, final_pubkey, false};
+    ChannelEncryption d{final_seckey, final_pubkey, false};
     bool decrypted = false;
     auto body = std::move(res.text);
     auto orig_size = body.size();

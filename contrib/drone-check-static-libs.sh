@@ -6,10 +6,10 @@
 set -o errexit
 
 anybad=
-for bin in httpserver/beldex-storage; do
+for bin in beldex-storage; do
     bad=
     if [ "$DRONE_STAGE_OS" == "darwin" ]; then
-        if otool -L $bin | grep -Ev '^'$bin':|^\t(/usr/lib/libSystem\.|/usr/lib/libc\+\+\.|/usr/lib/libresolv\.|/System/Library/Frameworks/(CoreFoundation|IOKit|Security|SystemConfiguration))'; then
+        if otool -L $bin | grep -Ev '^'$bin':|^\s*(/usr/lib/libSystem\.|/usr/lib/libc\+\+\.|/usr/lib/libresolv\.|/System/Library/Frameworks/(CoreFoundation|IOKit|Security|SystemConfiguration))'; then
             bad=1
         fi
     elif [ "$DRONE_STAGE_OS" == "linux" ]; then
