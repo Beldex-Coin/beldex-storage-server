@@ -627,10 +627,10 @@ struct get_swarm final : endpoint {
 
 /// Forwards an RPC request to the this storage server's beldexd.  Takes keys of:
 ///
-/// - `endpoint` (required) the public beldexd endpoint name such as "ons_resolve". Only accepts
+/// - `endpoint` (required) the public beldexd endpoint name such as "bns_resolve". Only accepts
 ///   whitelisted beldexd rpc endpoints; currently supported are:
 ///     - get_master_nodes
-///     - ons_resolve
+///     - bns_resolve
 /// - `params` (optional) dict of parameters to forward to beldexd.  Can be omitted or null if no
 ///   parameters should be passed.
 ///
