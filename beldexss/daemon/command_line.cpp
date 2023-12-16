@@ -117,8 +117,8 @@ parse_result parse_cli_args(int argc, char* argv[]) {
         base_dir /= ".beldex";
     if (testnet) {
         base_dir /= "testnet";
-        options.https_port = 19090;
-        options.omq_port = 19089;
+        options.https_port = 19099;
+        options.omq_port = 19098;
     }
 
     options.data_dir = base_dir / "storage";
