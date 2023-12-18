@@ -1,18 +1,19 @@
-#include "rate_limiter.h"
-#include "beldexd_key.h"
+#include <beldexss/rpc/rate_limiter.h>
+#include <beldexss/crypto/keys.h>
 
 #include <catch2/catch.hpp>
 #include <oxenmq/oxenmq.h>
 
 #include <chrono>
 
-using beldex::RateLimiter;
+using beldex::rpc::RateLimiter;
+using namespace beldex::crypto;
 using namespace std::literals;
 
 TEST_CASE("rate limiter - mnode - empty bucket", "[ratelim][mnode]") {
     oxenmq::OxenMQ omq;
     RateLimiter rate_limiter{omq};
-    auto identifier = beldex::legacy_pubkey::from_hex(
+    auto identifier = legacy_pubkey::from_hex(
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc000");
     const auto now = std::chrono::steady_clock::now();
 
@@ -22,21 +23,19 @@ TEST_CASE("rate limiter - mnode - empty bucket", "[ratelim][mnode]") {
     CHECK(rate_limiter.should_rate_limit(identifier, now));
 
     // wait just enough to allow one more request
-    const auto delta =
-        std::chrono::microseconds(1'000'000ul / RateLimiter::TOKEN_RATE);
+    const auto delta = std::chrono::microseconds(1'000'000ul / RateLimiter::TOKEN_RATE);
     CHECK_FALSE(rate_limiter.should_rate_limit(identifier, now + delta));
 }
 
 TEST_CASE("rate limiter - mnode - steady bucket fillup", "[ratelim][mnode]") {
     oxenmq::OxenMQ omq;
     RateLimiter rate_limiter{omq};
-    auto identifier = beldex::legacy_pubkey::from_hex(
+    auto identifier = legacy_pubkey::from_hex(
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc000");
     const auto now = std::chrono::steady_clock::now();
     // make requests at the same rate as the bucket is filling up
     for (int i = 0; i < RateLimiter::BUCKET_SIZE * 10; ++i) {
-        const auto delta = std::chrono::microseconds(i * 1'000'000ul /
-                                                     RateLimiter::TOKEN_RATE);
+        const auto delta = std::chrono::microseconds(i * 1'000'000ul / RateLimiter::TOKEN_RATE);
         CHECK_FALSE(rate_limiter.should_rate_limit(identifier, now + delta));
     }
 }
@@ -44,7 +43,7 @@ TEST_CASE("rate limiter - mnode - steady bucket fillup", "[ratelim][mnode]") {
 TEST_CASE("rate limiter - mnode - multiple identifiers", "[ratelim][mnode]") {
     oxenmq::OxenMQ omq;
     RateLimiter rate_limiter{omq};
-    auto identifier1 = beldex::legacy_pubkey::from_hex(
+    auto identifier1 = legacy_pubkey::from_hex(
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abc000");
     const auto now = std::chrono::steady_clock::now();
 
@@ -53,7 +52,7 @@ TEST_CASE("rate limiter - mnode - multiple identifiers", "[ratelim][mnode]") {
     }
     CHECK(rate_limiter.should_rate_limit(identifier1, now));
 
-    auto identifier2 = beldex::legacy_pubkey::from_hex(
+    auto identifier2 = legacy_pubkey::from_hex(
             "5123456789abcdef0123456789abcdef0123456789abcdef0123456789abc000");
     // other id
     CHECK_FALSE(rate_limiter.should_rate_limit(identifier2, now));
@@ -62,7 +61,7 @@ TEST_CASE("rate limiter - mnode - multiple identifiers", "[ratelim][mnode]") {
 TEST_CASE("rate limiter - client - empty bucket", "[ratelim][client]") {
     oxenmq::OxenMQ omq;
     RateLimiter rate_limiter{omq};
-    uint32_t identifier = (10<<24) + (1<<16) + (1<<8) + 13;
+    uint32_t identifier = (10 << 24) + (1 << 16) + (1 << 8) + 13;
     const auto now = std::chrono::steady_clock::now();
 
     for (int i = 0; i < RateLimiter::BUCKET_SIZE; ++i) {
@@ -71,21 +70,18 @@ TEST_CASE("rate limiter - client - empty bucket", "[ratelim][client]") {
     CHECK(rate_limiter.should_rate_limit_client(identifier, now));
 
     // wait just enough to allow one more request
-    const auto delta =
-        std::chrono::microseconds(1'000'000ul / RateLimiter::TOKEN_RATE);
-    CHECK_FALSE(
-        rate_limiter.should_rate_limit_client(identifier, now + delta));
+    const auto delta = std::chrono::microseconds(1'000'000ul / RateLimiter::TOKEN_RATE);
+    CHECK_FALSE(rate_limiter.should_rate_limit_client(identifier, now + delta));
 }
 
 TEST_CASE("rate limiter - client - steady bucket fillup", "[ratelim][client]") {
     oxenmq::OxenMQ omq;
     RateLimiter rate_limiter{omq};
-    uint32_t identifier = (10<<24) + (1<<16) + (1<<8) + 13;
+    uint32_t identifier = (10 << 24) + (1 << 16) + (1 << 8) + 13;
     const auto now = std::chrono::steady_clock::now();
     // make requests at the same rate as the bucket is filling up
     for (int i = 0; i < RateLimiter::BUCKET_SIZE * 10; ++i) {
-        const auto delta = std::chrono::microseconds(i * 1'000'000ul /
-                                                     RateLimiter::TOKEN_RATE);
+        const auto delta = std::chrono::microseconds(i * 1'000'000ul / RateLimiter::TOKEN_RATE);
         CHECK_FALSE(rate_limiter.should_rate_limit_client(identifier, now + delta));
     }
 }
@@ -93,7 +89,7 @@ TEST_CASE("rate limiter - client - steady bucket fillup", "[ratelim][client]") {
 TEST_CASE("rate limiter - client - multiple identifiers", "[ratelim][client]") {
     oxenmq::OxenMQ omq;
     RateLimiter rate_limiter{omq};
-    uint32_t identifier1 = (10<<24) + (1<<16) + (1<<8) + 13;
+    uint32_t identifier1 = (10 << 24) + (1 << 16) + (1 << 8) + 13;
     const auto now = std::chrono::steady_clock::now();
 
     for (int i = 0; i < RateLimiter::BUCKET_SIZE; ++i) {
@@ -101,7 +97,7 @@ TEST_CASE("rate limiter - client - multiple identifiers", "[ratelim][client]") {
     }
     CHECK(rate_limiter.should_rate_limit_client(identifier1, now));
 
-    uint32_t identifier2 = (10<<24) + (1<<16) + (1<<8) + 10;
+    uint32_t identifier2 = (10 << 24) + (1 << 16) + (1 << 8) + 10;
     // other id
     CHECK_FALSE(rate_limiter.should_rate_limit_client(identifier2, now));
 }
@@ -111,7 +107,7 @@ TEST_CASE("rate limiter - client - max client limit", "[ratelim][client]") {
     RateLimiter rate_limiter{omq};
     const auto now = std::chrono::steady_clock::now();
 
-    uint32_t ip_start = (10<<24) + 1;
+    uint32_t ip_start = (10 << 24) + 1;
 
     for (uint32_t i = 0; i < RateLimiter::MAX_CLIENTS; ++i) {
         rate_limiter.should_rate_limit_client(ip_start + i, now);
