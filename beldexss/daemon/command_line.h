@@ -9,8 +9,8 @@ namespace beldex::cli {
 
 struct command_line_options {
     std::string ip = "0.0.0.0";
-    uint16_t https_port = 22021;
-    uint16_t omq_port = 22020;
+    uint16_t https_port = 29090;
+    uint16_t omq_port = 29089;
     std::string beldexd_omq_rpc;  // Defaults to ipc://$HOME/.beldex/[testnet/]beldexd.sock
     bool force_start = false;
     bool testnet = false;
