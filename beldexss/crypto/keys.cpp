@@ -114,10 +114,10 @@ std::array<unsigned char, 32> subkey_verify_key(
         const unsigned char* pubkey, const unsigned char* subkey) {
 
     std::array<unsigned char, 32> subkey_pub;
-    // Need to compute: (c + H("BeldexSSSubkey" || c || A)) A and use that instead of A for
+    // Need to compute: (c + H(c || A, key="BeldexSSSubkey")) A and use that instead of A for
     // verification:
 
-    // H("BeldexSSSubkey" || c || A):
+    // H(c || A, key="BeldexSSSubkey"):
     crypto_generichash_state h_state;
     crypto_generichash_init(
             &h_state,
