@@ -446,7 +446,7 @@ static void distribute_command(
                         } catch (const std::exception& e) {
                             log::warning(
                                     logcat,
-                                    "Received unparseable response to {} from {}: {}",
+                                    "Received unparsable response to {} from {}: {}",
                                     cmd,
                                     peer.pubkey_legacy,
                                     e.what());
@@ -645,7 +645,7 @@ void RequestHandler::process_client_req(
                                 logcat,
                                 "Invalid beldexd response to client request: result is not valid "
                                 "json");
-                        return cb({http::BAD_GATEWAY, "beldexd returned unparseable data"s});
+                                return cb({http::BAD_GATEWAY, "beldexd returned unparsable data"s});
                     }
                     json res{{"result", std::move(result)}};
                     add_misc_response_fields(res, master_node_);
