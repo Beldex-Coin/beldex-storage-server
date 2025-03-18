@@ -68,7 +68,7 @@ TEST_CASE("master nodes - updates IP address", "[master-nodes][updates]") {
 TEST_CASE("master nodes - message hashing", "[master-nodes][messages]") {
     const std::chrono::system_clock::time_point timestamp{1616650862026ms};
     const auto expiry = timestamp + 48h;
-    beldex::user_pubkey_t pk;
+    beldex::user_pubkey pk;
     REQUIRE(pk.load("bdffba630924aa1224bb930dde21c0d11bf004608f2812217f8ac812d6c7e3ad48"));
     const auto data = oxenc::from_base64(
             "CAES1gIKA1BVVBIPL2FwaS92MS9tZXNzYWdlGrsCCAYovfqZv4YvQq8CVwutUBbhRzZw80TvR6uTYMKg9DSag"

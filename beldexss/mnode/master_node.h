@@ -115,7 +115,7 @@ class MasterNode {
 
     reachability_testing reach_records_;
 
-    mutable all_stats_t all_stats_;
+    mutable all_stats all_stats_;
 
     mutable std::recursive_mutex mn_mutex_;
 
@@ -243,9 +243,9 @@ class MasterNode {
             const crypto::legacy_pubkey& tester_addr,
             const std::string& msg_hash_hex);
 
-    bool is_pubkey_for_us(const user_pubkey_t& pk) const;
+    bool is_pubkey_for_us(const user_pubkey& pk) const;
 
-    std::optional<SwarmInfo> get_swarm(const user_pubkey_t& pk) const;
+    std::optional<SwarmInfo> get_swarm(const user_pubkey& pk) const;
 
     std::vector<mn_record> get_swarm_peers() const;
 

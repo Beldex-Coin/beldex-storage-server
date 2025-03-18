@@ -1154,7 +1154,7 @@ void MasterNode::bootstrap_swarms(const std::vector<swarm_id_t>& swarms) const {
 
     const auto& all_swarms = swarm_->all_valid_swarms();
 
-    std::unordered_map<user_pubkey_t, swarm_id_t> pk_swarm_cache;
+    std::unordered_map<user_pubkey, swarm_id_t> pk_swarm_cache;
     std::unordered_map<swarm_id_t, std::vector<message>> to_relay;
 
     std::vector<message> all_entries = db_->retrieve_all();
@@ -1212,7 +1212,7 @@ void to_json(nlohmann::json& j, const test_result& val) {
     j["result"] = to_str(val.result);
 }
 
-static nlohmann::json to_json(const all_stats_t& stats) {
+static nlohmann::json to_json(const all_stats& stats) {
     json peers;
     for (const auto& [pk, stats] : stats.peer_report()) {
         auto& p = peers[pk.hex()];
@@ -1324,7 +1324,7 @@ void MasterNode::process_push_batch(const std::string& blob) {
     log::trace(logcat, "Saving all: end");
 }
 
-bool MasterNode::is_pubkey_for_us(const user_pubkey_t& pk) const {
+bool MasterNode::is_pubkey_for_us(const user_pubkey& pk) const {
     std::lock_guard guard(mn_mutex_);
 
     if (!swarm_) {
@@ -1334,7 +1334,7 @@ bool MasterNode::is_pubkey_for_us(const user_pubkey_t& pk) const {
     return swarm_->is_pubkey_for_us(pk);
 }
 
-std::optional<SwarmInfo> MasterNode::get_swarm(const user_pubkey_t& pk) const {
+std::optional<SwarmInfo> MasterNode::get_swarm(const user_pubkey& pk) const {
     std::lock_guard guard(mn_mutex_);
 
     if (!swarm_) {
