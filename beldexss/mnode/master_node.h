@@ -45,6 +45,7 @@ inline constexpr uint64_t TEST_BLOCKS_BUFFER = 4;
 // We use the network hardfork and mnode revision from beldexd to version-gate upgrade features.
 using hf_revision = std::pair<int, int>;
 
+//TODO update HF version
 // The earliest hardfork *this* version of storage server will work on:
 inline constexpr hf_revision STORAGE_SERVER_HARDFORK = {12, 1};
 
