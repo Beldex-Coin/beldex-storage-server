@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 
+#include <cpr/async_wrapper.h>
 #include <beldexss/storage/database.hpp>
 #include <beldexss/crypto/keys.h>
 #include "reachability_testing.h"
@@ -120,7 +121,7 @@ class MasterNode {
 
     mutable std::recursive_mutex mn_mutex_;
 
-    std::forward_list<std::future<void>> outstanding_https_reqs_;
+    std::forward_list<cpr::AsyncWrapper<void>> outstanding_https_reqs_;
 
     // Save multiple messages to the database at once (i.e. in a single transaction)
     void save_bulk(const std::vector<message>& msgs);

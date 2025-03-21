@@ -15,6 +15,7 @@ target_link_libraries(server
     common
     utils
     rpc
+    mnode
     logging
     OpenSSL::SSL
     oxenmq::oxenmq

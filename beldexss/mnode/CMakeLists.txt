@@ -10,12 +10,11 @@ target_link_libraries(mnode
     PUBLIC
     oxenmq::oxenmq
     PRIVATE
+    cpr::cpr
     crypto
     utils
     server
     logging
     rpc
     oxenc::oxenc
-
-    cpr::cpr
     sodium)
