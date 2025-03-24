@@ -9,8 +9,8 @@ add_library(mnode STATIC
 target_link_libraries(mnode
     PUBLIC
     oxenmq::oxenmq
-    PRIVATE
     cpr::cpr
+    PRIVATE
     crypto
     utils
     server
