@@ -987,7 +987,7 @@ void RequestHandler::process_client_req(
                        ? res->result["swarm"][master_node_.own_address().pubkey_ed25519.hex()]
                        : res->result;
 
-    mine["count"] = master_node_.get_db().revoke_subaccounts(req.pubkey, req.revoke);
+    master_node_.get_db().revoke_subaccounts(req.pubkey, req.revoke);
     auto sig = create_signature(ed25519_sk_, req.pubkey.prefixed_hex(), req.timestamp, req.revoke);
     mine["signature"] = req.b64 ? oxenc::to_base64(sig.begin(), sig.end()) : util::view_guts(sig);
     if (req.recurse)
