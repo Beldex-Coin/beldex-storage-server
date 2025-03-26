@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
             if (auto it = aux_keys.find(pk); it != aux_keys.end())
                 chain.push_back(it->second);
             else
-                std::cerr << pk << " is not an active MN\n";
+                std::cerr << pk.hex() << " is not an active MN\n";
         }
         if (chain.size() != pubkeys.size()) throw std::runtime_error{"Missing x25519 pubkeys"};
         if (chain.empty()) throw std::runtime_error{"Need at least one MN pubkey"};
