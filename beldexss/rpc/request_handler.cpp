@@ -271,6 +271,7 @@ namespace {
             const std::optional<std::array<unsigned char, 32>>& pk_ed25519,
             const std::optional<signed_subaccount_token>& subaccount,
             subaccount_access required_access,
+            bool skip_revoke_check,
             const std::array<unsigned char, 64>& sig,
             const T&... val) {
         std::string data = concatenate_sig_message_parts(val...);
@@ -294,7 +295,7 @@ namespace {
 
         if (subaccount) {
             // Make sure the token isn't revoked
-            if (db.subaccount_revoked(pubkey, subaccount->token)) {
+            if (!skip_revoke_check && db.subaccount_revoked(pubkey, subaccount->token)) {
                 log::warning(logcat, "Signature verification failed: subaccount is revoked");
                 return false;
             }
@@ -501,9 +502,9 @@ void RequestHandler::process_client_req(rpc::store&& req, std::function<void(Res
         return cb(handle_wrong_swarm(req.pubkey));
 
     using namespace std::chrono;
-    bool public_ns = is_public_namespace(req.msg_namespace);
+    bool public_in = is_public_inbox_namespace(req.msg_namespace);
     auto ttl = duration_cast<milliseconds>(req.expiry - req.timestamp);
-    auto max_ttl = public_ns ? TTL_MAXIMUM : TTL_MAXIMUM_PRIVATE;
+    auto max_ttl = public_in ? TTL_MAXIMUM : TTL_MAXIMUM_PRIVATE;
     if (ttl < TTL_MINIMUM || ttl > max_ttl) {
         log::warning(logcat, "Forbidden. Invalid TTL: {}ms", ttl.count());
         return cb(Response{http::FORBIDDEN, "Provided expiry/TTL is not valid."sv});
@@ -514,7 +515,7 @@ void RequestHandler::process_client_req(rpc::store&& req, std::function<void(Res
         return cb(Response{http::NOT_ACCEPTABLE, "Timestamp error: check your clock"sv});
     }
 
-    if (!public_ns) {
+    if (!public_in) {
         if (!req.signature) {
             auto err = fmt::format(
                     "store: signature required to store to namespace {}",
@@ -531,12 +532,19 @@ void RequestHandler::process_client_req(rpc::store&& req, std::function<void(Res
                     http::NOT_ACCEPTABLE, "store signature timestamp too far from current time"sv});
         }
 
+        auto access_required = subaccount_access::Write;
+        if (is_public_outbox_namespace(req.msg_namespace))
+            // 'store' implicitly deletes for a public outbox, sub subaccounts need both write and
+            // delete access to store to such a namespace:
+            access_required = access_required | subaccount_access::Delete;
+
         if (!verify_signature(
                     master_node_.get_db(),
                     req.pubkey,
                     req.pubkey_ed25519,
                     req.subaccount,
-                    subaccount_access::Write,
+                    access_required,
+                    false,
                     *req.signature,
                     "store",
                     req.msg_namespace == namespace_id::Default ? "" : to_string(req.msg_namespace),
@@ -671,13 +679,9 @@ void RequestHandler::process_client_req(
 
     auto now = system_clock::now();
 
-    // At HF19 start requiring authentication for all retrievals (except legacy closed groups, which
-    // can't be authenticated for technical reasons).
-    if (req.msg_namespace != namespace_id::LegacyClosed) {
-        if (!req.check_signature) {
-            log::debug(logcat, "retrieve: request signature required");
+    if (!is_noauth_retrieve_namespace(req.msg_namespace) && !req.check_signature) {
+        log::debug(logcat, "retrieve: request signature required");
             return cb(Response{http::UNAUTHORIZED, "retrieve: request signature required"sv});
-        }
     }
 
     if (req.check_signature) {
@@ -697,6 +701,7 @@ void RequestHandler::process_client_req(
                     req.pubkey_ed25519,
                     req.subaccount,
                     subaccount_access::Read,
+                    is_unrevocable_namespace(req.msg_namespace),
                     req.signature,
                     "retrieve",
                     req.msg_namespace != namespace_id::Default
@@ -833,6 +838,7 @@ void RequestHandler::process_client_req(
                 req.pubkey_ed25519,
                 req.subaccount,
                 subaccount_access::Delete,
+                false,
                 req.signature,
                 "delete_all",
                 signature_value(req.msg_namespace),
@@ -890,6 +896,7 @@ void RequestHandler::process_client_req(rpc::delete_msgs&& req, std::function<vo
                 req.pubkey_ed25519,
                 req.subaccount,
                 subaccount_access::Delete,
+                false,
                 req.signature,
                 "delete",
                 req.messages)) {
@@ -963,6 +970,7 @@ void RequestHandler::process_client_req(
                 req.pubkey_ed25519,
                 std::nullopt,  // no subaccount allowed
                 subaccount_access::None,
+                false,
                 req.signature,
                 "revoke_subaccount",
                 req.timestamp,
@@ -1015,6 +1023,7 @@ void RequestHandler::process_client_req(
                 req.pubkey_ed25519,
                 std::nullopt,  // no subaccount allowed
                 subaccount_access::None,
+                false,
                 req.signature,
                 "unrevoke_subaccount",
                 req.timestamp,
@@ -1064,6 +1073,7 @@ void RequestHandler::process_client_req(
                 req.pubkey_ed25519,
                 req.subaccount,
                 subaccount_access::Delete,
+                false,
                 req.signature,
                 "delete_before",
                 signature_value(req.msg_namespace),
@@ -1130,6 +1140,7 @@ void RequestHandler::process_client_req(rpc::expire_all&& req, std::function<voi
                 req.pubkey_ed25519,
                 req.subaccount,
                 subaccount_access::Delete,
+                false,
                 req.signature,
                 "expire_all",
                 signature_value(req.msg_namespace),
@@ -1193,6 +1204,7 @@ void RequestHandler::process_client_req(rpc::expire_msgs&& req, std::function<vo
                 req.pubkey_ed25519,
                 req.subaccount,
                 subaccount_access::Write,
+                false,
                 req.signature,
                 "expire",
                 req.shorten  ? "shorten"
@@ -1285,6 +1297,7 @@ void RequestHandler::process_client_req(rpc::get_expiries&& req, std::function<v
                 req.pubkey_ed25519,
                 req.subaccount,
                 subaccount_access::Read,
+                false,
                 req.signature,
                 "get_expiries",
                 req.sig_ts,
