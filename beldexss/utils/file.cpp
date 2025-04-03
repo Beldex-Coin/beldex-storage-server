@@ -1,7 +1,7 @@
 #include "file.hpp"
 #include <fstream>
 
-namespace beldex::util {
+namespace beldexss::util {
 
 std::string slurp_file(const std::filesystem::path& filename) {
     std::ifstream in;
@@ -25,4 +25,4 @@ void dump_file(const std::filesystem::path& filename, std::string_view contents)
     out.write(contents.data(), contents.size());
 }
 
-}  // namespace beldex::util
+}  // namespace beldexss::util

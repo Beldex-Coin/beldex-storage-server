@@ -12,7 +12,7 @@ namespace oxenmq {
 class OxenMQ;
 }
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 using namespace std::literals;
 
@@ -134,4 +134,4 @@ class all_stats {
     std::pair<std::chrono::steady_clock::duration, period_stats> get_recent_requests() const;
 };
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

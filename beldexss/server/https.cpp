@@ -19,7 +19,7 @@
 
 #include <uWebSockets/App.h>
 
-namespace beldex::server {
+namespace beldexss::server {
 
 using namespace oxen;
 static auto logcat = log::Cat("server");
@@ -635,4 +635,4 @@ HTTPS::~HTTPS() {
     shutdown(true);
 }
 
-}  // namespace beldex::server
+}  // namespace beldexss::server

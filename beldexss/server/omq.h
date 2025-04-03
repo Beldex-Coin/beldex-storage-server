@@ -15,18 +15,18 @@
 #include "../common/message.h"
 #include "../mnode/sn_record.h"
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 class RequestHandler;
 class RateLimiter;
 struct OnionRequestMetadata;
 struct Response;
-}  // namespace beldex::rpc
+}  // namespace beldexss::rpc
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 class MasterNode;
 }
 
-namespace beldex::server {
+namespace beldexss::server {
 
 using namespace std::literals;
 
@@ -267,4 +267,4 @@ class OMQ {
     void send_notifies(message msg);
 };
 
-}  // namespace beldex::server
+}  // namespace beldexss::server

@@ -6,7 +6,7 @@
 
 #include "keys.h"
 
-namespace beldex::crypto {
+namespace beldexss::crypto {
 
 enum class EncryptType {
     aes_cbc,
@@ -70,7 +70,7 @@ class ChannelEncryption {
     bool server_;  // True if we are the server (i.e. the mnode).
 };
 
-}  // namespace beldex::crypto
+}  // namespace beldexss::crypto
 
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::EncryptType> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::EncryptType> = true;

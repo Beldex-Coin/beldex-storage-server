@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <oxenc/endian.h>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 using namespace oxen;
 static auto logcat = log::Cat("mnode");
@@ -295,4 +295,4 @@ std::pair<int, int> count_missing_data(const block_update& bu) {
     return result;
 }
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

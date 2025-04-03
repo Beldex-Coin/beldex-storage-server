@@ -12,7 +12,7 @@
 #include <sodium/crypto_scalarmult.h>
 #include <sodium/randombytes.h>
 
-namespace beldex::crypto {
+namespace beldexss::crypto {
 
 namespace {
     // Derive shared secret from our (ephemeral) `seckey` and the other party's
@@ -310,4 +310,4 @@ std::string ChannelEncryption::decrypt_xchacha20(
     return plaintext;
 }
 
-}  // namespace beldex::crypto
+}  // namespace beldexss::crypto

@@ -7,7 +7,7 @@
 #include <chrono>
 #include <string>
 
-using namespace beldex::mnode;
+using namespace beldexss::mnode;
 
 TEST_CASE("v1 serialization - basic values", "[serialization]") {
     beldex::user_pubkey pub_key;

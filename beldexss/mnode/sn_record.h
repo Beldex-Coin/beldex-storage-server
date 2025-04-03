@@ -5,7 +5,7 @@
 
 #include <beldexss/crypto/keys.h>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 struct mn_record {
     std::string ip;
@@ -26,4 +26,4 @@ inline bool operator!=(const mn_record& lhs, const mn_record& rhs) {
     return !(lhs == rhs);
 }
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

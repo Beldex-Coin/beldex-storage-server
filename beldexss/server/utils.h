@@ -8,7 +8,7 @@
 #include <beldexss/utils/string_utils.hpp>
 
 /// Namespace for http constants/types
-namespace beldex::http {
+namespace beldexss::http {
 
 using namespace std::literals;
 
@@ -64,4 +64,4 @@ using headers =
 // Returned in a HF19+ ping_test to include the remote's pubkey in the response
 constexpr auto MNODE_PUBKEY_HEADER = "X-Beldex-Mnode-Pubkey";
 
-}  // namespace beldex::http
+}  // namespace beldexss::http

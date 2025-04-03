@@ -9,7 +9,7 @@
 
 using nlohmann::json;
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 
 using namespace oxen;
 static auto logcat = log::Cat("rpc");
@@ -201,4 +201,4 @@ bool operator==(const RelayToNodeInfo& a, const RelayToNodeInfo& b) {
            std::tie(b.ciphertext, b.ephemeral_key, b.enc_type, b.next_node);
 }
 
-}  // namespace beldex::rpc
+}  // namespace beldexss::rpc

@@ -10,7 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <oxenmq/oxenmq.h>
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 
 using namespace oxen;
 static auto logcat = log::Cat("rpc");
@@ -91,4 +91,4 @@ beldexd_seckeys get_mn_privkeys(
     }
 }
 
-}  // namespace beldex::rpc
+}  // namespace beldexss::rpc

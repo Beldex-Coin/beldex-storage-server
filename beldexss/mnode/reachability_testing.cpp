@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 using namespace oxen;
 static auto logcat = log::Cat("mnode");
@@ -137,4 +137,4 @@ void reachability_testing::remove_node_from_failing(const crypto::legacy_pubkey&
     failing.erase(pk);
 }
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

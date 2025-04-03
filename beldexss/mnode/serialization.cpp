@@ -10,7 +10,7 @@
 
 #include <chrono>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 using namespace oxen;
 static auto logcat = log::Cat("mnode");
@@ -104,4 +104,4 @@ std::vector<message> deserialize_messages(std::string_view slice) {
     return result;
 }
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

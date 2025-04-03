@@ -17,11 +17,11 @@
 #include <beldexss/crypto/subaccount.h>
 #include <beldexss/common/type_list.h>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 class MasterNode;
 }
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 
 using namespace std::literals;
 
@@ -920,4 +920,4 @@ struct ifelse : endpoint {
     void load_from(oxenc::bt_dict_consumer params) override;
 };
 
-}  // namespace beldex::rpc
+}  // namespace beldexss::rpc

@@ -21,7 +21,7 @@
 #include <cpr/async_wrapper.h>
 #include <variant>
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 
 // When a storage test returns a "retry" response, we retry again after this interval:
 inline constexpr auto TEST_RETRY_INTERVAL = 50ms;
@@ -265,4 +265,4 @@ class RequestHandler {
     void process_onion_req(ProcessCiphertextError&& res, OnionRequestMetadata&& data);
 };
 
-}  // namespace beldex::rpc
+}  // namespace beldexss::rpc

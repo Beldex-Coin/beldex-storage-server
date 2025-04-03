@@ -2,7 +2,7 @@
 #include <fmt/format.h>
 #include <cassert>
 
-namespace beldex::util {
+namespace beldexss::util {
 
 using namespace std::literals;
 
@@ -132,4 +132,4 @@ std::string friendly_duration(std::chrono::nanoseconds dur) {
     return os.str();
 }
 
-}  // namespace beldex::util
+}  // namespace beldexss::util

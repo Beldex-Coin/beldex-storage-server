@@ -9,9 +9,9 @@
 #include <oxenc/base64.h>
 
 using namespace std::literals;
-using namespace beldex::crypto;
+using namespace beldexss::crypto;
 
-static beldex::mnode::mn_record create_dummy_mn_record() {
+static beldexss::mnode::mn_record create_dummy_mn_record() {
     const auto pk = legacy_pubkey::from_hex(
             "330e73449f6656cfe7816fa00d850af1f45884eab9e404026ca51f54b045e385");
     const auto pk_x25519 = x25519_pubkey::from_hex(
@@ -26,19 +26,19 @@ static beldex::mnode::mn_record create_dummy_mn_record() {
 using ip_ports = std::tuple<const char*, uint16_t, uint16_t>;
 
 static void test_ip_update(ip_ports old_addr, ip_ports new_addr, ip_ports expected) {
-    using beldex::mnode::mn_record;
+    using beldexss::mnode::mn_record;
 
     auto mn = create_dummy_mn_record();
 
     std::tie(mn.ip, mn.port, mn.omq_port) = old_addr;
 
-    beldex::mnode::SwarmInfo si{0, std::vector<mn_record>{mn}};
-    std::vector<beldex::mnode::SwarmInfo> current{{si}};
+    beldexss::mnode::SwarmInfo si{0, std::vector<mn_record>{mn}};
+    std::vector<beldexss::mnode::SwarmInfo> current{{si}};
 
     std::tie(mn.ip, mn.port, mn.omq_port) = new_addr;
 
-    beldex::mnode::SwarmInfo si2{0, std::vector<mn_record>{mn}};
-    std::vector<beldex::mnode::SwarmInfo> incoming{{si2}};
+    beldexss::mnode::SwarmInfo si2{0, std::vector<mn_record>{mn}};
+    std::vector<beldexss::mnode::SwarmInfo> incoming{{si2}};
 
     preserve_ips(incoming, current);
 

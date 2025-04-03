@@ -10,7 +10,7 @@
 #include <beldexss/common/pubkey.h>
 #include "sn_record.h"
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 class MasterNode;
 
@@ -132,4 +132,4 @@ class Swarm {
     std::optional<mn_record> find_node(const crypto::x25519_pubkey& pk) const;
 };
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

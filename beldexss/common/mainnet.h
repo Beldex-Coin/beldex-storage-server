@@ -1,6 +1,6 @@
 #pragma once
 
-namespace beldex {
+namespace beldexss {
 
 inline bool is_mainnet = true;
 

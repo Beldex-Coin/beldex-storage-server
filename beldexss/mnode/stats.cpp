@@ -6,7 +6,7 @@
 #include <oxenmq/oxenmq.h>
 #include <unordered_map>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 all_stats::all_stats(oxenmq::OxenMQ& omq) {
     omq.add_timer([this] { cleanup(); }, STATS_CLEANUP_INTERVAL);
@@ -70,4 +70,4 @@ std::pair<std::chrono::steady_clock::duration, period_stats> all_stats::get_rece
     return result;
 }
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

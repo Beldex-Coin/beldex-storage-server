@@ -17,15 +17,15 @@
 #include "stats.h"
 #include "swarm.h"
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 struct OnionRequestMetadata;
 }
 
-namespace beldex::server {
+namespace beldexss::server {
 class OMQ;
 }
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 inline constexpr size_t BLOCK_HASH_CACHE_SIZE = 30;
 
@@ -277,7 +277,7 @@ class MasterNode {
     server::OMQ& omq_server() { return omq_server_; }
 };
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode
 
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::mnode::MnodeStatus> = true;
+inline constexpr bool beldexss::to_string_formattable<beldex::mnode::MnodeStatus> = true;

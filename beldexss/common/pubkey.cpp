@@ -4,7 +4,7 @@
 #include <charconv>
 #include <cassert>
 
-namespace beldex {
+namespace beldexss {
 
 user_pubkey& user_pubkey::load(std::string_view pk) {
     if (pk.size() == USER_PUBKEY_SIZE_HEX && oxenc::is_hex(pk)) {
@@ -54,4 +54,4 @@ std::string user_pubkey::prefixed_raw() const {
     return bytes;
 }
 
-}  // namespace beldex
+}  // namespace beldexss

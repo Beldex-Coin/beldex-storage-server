@@ -23,7 +23,7 @@
 
 using json = nlohmann::json;
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 using namespace oxen;
 static auto logcat = log::Cat("mnode");
@@ -226,7 +226,7 @@ void MasterNode::bootstrap_data() {
                                  .dump();
 
     std::vector<oxenmq::address> seed_nodes;
-    if (beldex::is_mainnet) {
+    if (beldexss::is_mainnet) {
         seed_nodes.emplace_back(
                 "curve://public.beldex.io:29091/"
                 "eee01f183b2079a529f4ba8933c0f0fcb8053337e003870ef6467a97f2259d73");
@@ -649,7 +649,7 @@ void MasterNode::update_swarms() {
                         // nodes: but currently we still need this to deal with the lag).
 
                         auto [missing, total] = count_missing_data(bu);
-                        if (total >= (beldex::is_mainnet ? 100 : 10) &&
+                        if (total >= (beldexss::is_mainnet ? 100 : 10) &&
                             missing <= MISSING_PUBKEY_THRESHOLD::num * total /
                                                MISSING_PUBKEY_THRESHOLD::den) {
                             log::info(
@@ -1266,7 +1266,7 @@ std::string MasterNode::get_status_line() const {
     // 123/456/789/1011 (last 62.3min)
     std::ostringstream s;
     s << 'v' << STORAGE_SERVER_VERSION_STRING;
-    if (!beldex::is_mainnet)
+    if (!beldexss::is_mainnet)
         s << " (TESTNET)";
 
     if (syncing_)
@@ -1351,4 +1351,4 @@ std::vector<mn_record> MasterNode::get_swarm_peers() const {
     return swarm_->other_nodes();
 }
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

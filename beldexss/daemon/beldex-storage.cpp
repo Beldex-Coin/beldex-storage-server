@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, handle_signal);
 
     using namespace oxen;
-    using namespace beldex;
+    using namespace beldexss;
     auto parsed = cli::parse_cli_args(argc, argv);
     if (auto* code = std::get_if<int>(&parsed))
         return *code;

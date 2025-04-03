@@ -5,7 +5,7 @@
 #include <functional>
 #include <string_view>
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 
 using beldexd_seckeys =
         std::tuple<crypto::legacy_seckey, crypto::ed25519_seckey, crypto::x25519_seckey>;
@@ -25,4 +25,4 @@ using beldexd_seckeys =
 beldexd_seckeys get_mn_privkeys(
         std::string_view beldexd_rpc_address, std::function<bool()> keep_trying = nullptr);
 
-}  // namespace beldex::rpc
+}  // namespace beldexss::rpc

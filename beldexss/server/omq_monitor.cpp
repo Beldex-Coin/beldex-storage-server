@@ -4,6 +4,8 @@
 #include "../rpc/client_rpc_endpoints.h"
 #include "../utils/time.hpp"
 
+#include <beldexss/logging/beldex_logger.h>
+
 #include <chrono>
 #include <oxen/log.hpp>
 #include <tuple>
@@ -14,7 +16,7 @@
 #include <sodium/crypto_sign.h>
 #include <sodium/crypto_sign_ed25519.h>
 
-namespace beldex::server {
+namespace beldexss::server {
 
 using namespace std::literals;
 using namespace oxen;
@@ -384,4 +386,4 @@ void OMQ::send_notifies(message msg) {
     }
 }
 
-}  // namespace beldex::server
+}  // namespace beldexss::server

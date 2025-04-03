@@ -18,7 +18,7 @@ extern "C" {
 #endif
 }
 
-namespace beldex::cli {
+namespace beldexss::cli {
 
 using namespace std::literals;
 
@@ -186,7 +186,7 @@ parse_result parse_cli_args(int argc, char* argv[]) {
                "One or more public keys (x25519) that will be granted access to the "
                "`get_stats` omq endpoint")
             ->type_name("PUBKEY");
-    cli.set_version_flag("--version,-v", std::string{beldex::STORAGE_SERVER_VERSION_INFO});
+    cli.set_version_flag("--version,-v", std::string{beldexss::STORAGE_SERVER_VERSION_INFO});
 
     // Deprecated options, put in the "" group to hide them:
     // Old versions had a janky interface where some options were as above, but for some reason
@@ -203,4 +203,4 @@ parse_result parse_cli_args(int argc, char* argv[]) {
     return options;
 }
 
-}  // namespace beldex::cli
+}  // namespace beldexss::cli

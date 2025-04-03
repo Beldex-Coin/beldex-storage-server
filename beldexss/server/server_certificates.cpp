@@ -14,7 +14,7 @@ extern "C" {
 
 #include <cstddef>
 
-namespace beldex {
+namespace beldexss {
 
 namespace {
 
@@ -200,4 +200,4 @@ err:
     BIO_free(bio_err);
 }
 
-}  // namespace beldex
+}  // namespace beldexss

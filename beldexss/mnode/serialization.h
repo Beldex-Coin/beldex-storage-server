@@ -5,7 +5,7 @@
 #include <vector>
 #include <beldexss/common/message.h>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 inline constexpr size_t SERIALIZATION_BATCH_SIZE = 9'000'000;
 
@@ -26,4 +26,4 @@ std::vector<std::string> serialize_messages(It begin, It end, uint8_t version) {
 
 std::vector<message> deserialize_messages(std::string_view blob);
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

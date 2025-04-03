@@ -10,7 +10,7 @@
 
 #include <beldexss/common/formattable.h>
 
-namespace beldex::crypto {
+namespace beldexss::crypto {
 
 using namespace std::literals;
 
@@ -93,20 +93,20 @@ legacy_pubkey parse_legacy_pubkey(std::string_view pubkey_in);
 ed25519_pubkey parse_ed25519_pubkey(std::string_view pubkey_in);
 x25519_pubkey parse_x25519_pubkey(std::string_view pubkey_in);
 
-}  // namespace beldex::crypto
+}  // namespace beldexss::crypto
 
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::legacy_pubkey> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::legacy_pubkey> = true;
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::ed25519_pubkey> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::ed25519_pubkey> = true;
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::x25519_pubkey> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::x25519_pubkey> = true;
 
 namespace std {
 
 template <typename Derived, size_t N>
-struct hash<beldex::crypto::pubkey_base<Derived, N>> {
-    size_t operator()(const beldex::crypto::pubkey_base<Derived, N>& pk) const {
+struct hash<beldexss::crypto::pubkey_base<Derived, N>> {
+    size_t operator()(const beldexss::crypto::pubkey_base<Derived, N>& pk) const {
         // pubkeys are already random enough to use the first bytes directly as a good (and
         // fast) hash value
         static_assert(alignof(decltype(pk)) >= alignof(size_t));
@@ -115,10 +115,10 @@ struct hash<beldex::crypto::pubkey_base<Derived, N>> {
 };
 
 template <>
-struct hash<beldex::crypto::legacy_pubkey> : hash<beldex::crypto::legacy_pubkey::PubKeyBase> {};
+struct hash<beldexss::crypto::legacy_pubkey> : hash<beldexss::crypto::legacy_pubkey::PubKeyBase> {};
 template <>
-struct hash<beldex::crypto::x25519_pubkey> : hash<beldex::crypto::x25519_pubkey::PubKeyBase> {};
+struct hash<beldexss::crypto::x25519_pubkey> : hash<beldexss::crypto::x25519_pubkey::PubKeyBase> {};
 template <>
-struct hash<beldex::crypto::ed25519_pubkey> : hash<beldex::crypto::ed25519_pubkey::PubKeyBase> {};
+struct hash<beldexss::crypto::ed25519_pubkey> : hash<beldexss::crypto::ed25519_pubkey::PubKeyBase> {};
 
 }  // namespace std
