@@ -22,7 +22,6 @@ add_subdirectory(mnode)
 add_subdirectory(storage)
 add_subdirectory(utils)
 
-
 # Build Info
 if(BELDEXSS_VERSIONTAG)
     set(VERSIONTAG "${BELDEXSS_VERSIONTAG}")
