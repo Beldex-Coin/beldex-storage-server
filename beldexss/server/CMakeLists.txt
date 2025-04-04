@@ -13,6 +13,7 @@ find_package(Threads)
 target_link_libraries(server
     PUBLIC
     uWebSockets
+    quic    # public so it gets to /daemon
     PRIVATE
     common
     utils

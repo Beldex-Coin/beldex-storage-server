@@ -17,6 +17,10 @@
 #include "stats.h"
 #include "swarm.h"
 
+namespace beldexss::quic {
+struct Endpoint;
+}
+
 namespace beldexss::rpc {
 struct OnionRequestMetadata;
 }
@@ -93,6 +97,7 @@ class MasterNode {
     std::string block_hash_;
     std::unique_ptr<Swarm> swarm_;
     std::unique_ptr<Database> db_;
+    std::shared_ptr<beldexss::quic::Endpoint> quic;
 
     MnodeStatus status_ = MnodeStatus::UNKNOWN;
 
@@ -122,6 +127,8 @@ class MasterNode {
     mutable std::recursive_mutex mn_mutex_;
 
     std::forward_list<cpr::AsyncWrapper<void>> outstanding_https_reqs_;
+
+    void send_notifies(message m);
 
     // Save multiple messages to the database at once (i.e. in a single transaction)
     void save_bulk(const std::vector<message>& msgs);
@@ -187,6 +194,8 @@ class MasterNode {
 
     Database& get_db() { return *db_; }
     const Database& get_db() const { return *db_; }
+
+    void connect_quic(std::shared_ptr<beldexss::quic::Endpoint>&);
 
     // Return info about this node as it is advertised to other nodes
     const mn_record& own_address() { return our_address_; }

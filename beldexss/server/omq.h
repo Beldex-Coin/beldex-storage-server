@@ -16,6 +16,14 @@
 #include "../common/message.h"
 #include "../mnode/sn_record.h"
 
+namespace beldexss::quic {
+struct Connection;
+}  // namespace beldexss::quic
+
+namespace beldexss {
+using connection_handle = std::variant<oxenmq::ConnectionID, std::shared_ptr<quic::Connection>>;
+}  // namespace beldexss
+
 namespace beldexss::rpc {
 class RequestHandler;
 class RateLimiter;
@@ -27,35 +35,26 @@ namespace beldexss::mnode {
 class MasterNode;
 }  // namespace beldexss::mnode
 
-namespace beldexss::quic {
-struct Connection;
-}  // namespace beldexss::quic
 namespace beldexss::server {
 
 using namespace std::literals;
-
 
 struct MonitorData {
     static constexpr auto MONITOR_EXPIRY_TIME = 65min;
 
     std::chrono::steady_clock::time_point expiry;  // When this notify reg expires
     std::vector<namespace_id> namespaces;          // sorted namespace_ids
-    std::optional<oxenmq::ConnectionID> push_conn =
-            std::nullopt;  // ConnectionID to push notifications to
-    std::optional<std::shared_ptr<quic::Connection>> quic =
-            std::nullopt;  // quic connection to push to
-    bool want_data;        // true if the subscriber wants msg data
+    connection_handle conn;
+    bool want_data;  // true if the subscriber wants msg data
 
     MonitorData(
             std::vector<namespace_id> namespaces,
             bool data,
-            std::optional<oxenmq::ConnectionID> conn,
-            std::optional<std::shared_ptr<quic::Connection>> q = std::nullopt,
+            connection_handle c,
             std::chrono::seconds ttl = MONITOR_EXPIRY_TIME) :
             expiry{std::chrono::steady_clock::now() + ttl},
             namespaces{std::move(namespaces)},
-            push_conn{std::move(conn)},
-            quic{q},
+            conn{c},
             want_data{data} {}
 
     void reset_expiry(std::chrono::seconds ttl = MONITOR_EXPIRY_TIME) {
@@ -229,11 +228,13 @@ class OMQ {
         const crypto::x25519_seckey& privkey,
         const std::vector<crypto::x25519_pubkey>& stats_access_keys_hex);
     
-        void update_monitors(
-            std::vector<sub_info>&,
-            std::optional<oxenmq::ConnectionID> = std::nullopt,
-            std::optional<std::shared_ptr<quic::Connection>> = std::nullopt);
+        void update_monitors(std::vector<sub_info>&, connection_handle);
 
+        void get_notifiers(
+                message& m,
+                std::vector<connection_handle>& to,
+                std::vector<connection_handle>& with_data);
+    
     // Initialize oxenmq; return a future that completes once we have connected to and
     // initialized from beldexd.
     void init(
@@ -273,8 +274,6 @@ class OMQ {
     static std::pair<std::string_view, rpc::OnionRequestMetadata> decode_onion_data(
             std::string_view data);
 
-    // Called during message submission to send notifications to anyone subscribed to them.
-    void send_notifies(message msg);
 };
 
 }  // namespace beldexss::server
