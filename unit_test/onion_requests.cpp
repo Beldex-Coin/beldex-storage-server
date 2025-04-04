@@ -4,8 +4,8 @@
 
 #include <beldexss/rpc/onion_processing.h>
 
-using namespace beldex::rpc;
-using namespace beldex::crypto;
+using namespace beldexss::rpc;
+using namespace beldexss::crypto;
 using namespace std::literals;
 
 constexpr const char* ciphertext = "ciphertext";

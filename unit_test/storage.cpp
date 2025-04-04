@@ -11,7 +11,7 @@
 
 #include <catch2/catch.hpp>
 
-using namespace beldex;
+using namespace beldexss;
 
 using namespace std::literals;
 

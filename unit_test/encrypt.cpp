@@ -6,7 +6,7 @@
 #include <beldexss/crypto/keys.h>
 
 using namespace std::literals;
-using namespace beldex::crypto;
+using namespace beldexss::crypto;
 
 constexpr auto plaintext_data = "Grumpy cat says no!"sv;
 

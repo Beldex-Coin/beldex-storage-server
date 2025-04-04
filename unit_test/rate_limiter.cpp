@@ -6,8 +6,8 @@
 
 #include <chrono>
 
-using beldex::rpc::RateLimiter;
-using namespace beldex::crypto;
+using beldexss::rpc::RateLimiter;
+using namespace beldexss::crypto;
 using namespace std::literals;
 
 TEST_CASE("rate limiter - mnode - empty bucket", "[ratelim][mnode]") {
