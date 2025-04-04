@@ -30,10 +30,6 @@ namespace beldexss::server {
 
 using namespace std::literals;
 
-oxenc::bt_value json_to_bt(nlohmann::json j);
-
-nlohmann::json bt_to_json(oxenc::bt_dict_consumer d);
-nlohmann::json bt_to_json(oxenc::bt_list_consumer l);
 
 struct MonitorData {
     static constexpr auto MONITOR_EXPIRY_TIME = 65min;
