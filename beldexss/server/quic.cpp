@@ -89,38 +89,25 @@ void QUIC::reachability_test(std::shared_ptr<mnode::mn_test> test) {
         return test->add_result(true);
 
     auto& mn = test->mn;
-    auto reported = std::make_shared<bool>(false);
-    auto conn_established = [reported, test](quic::connection_interface& conn) {
-        *reported = true;
-        test->add_result(true);
-
-        log::debug(logcat, "QUIC reachability test successful for {}", test->mn.pubkey_legacy);
-
-        conn.close_connection();
-    };
-    auto conn_closed = [reported = std::move(reported), test = std::move(test)](
-                               quic::connection_interface&, uint64_t ec) {
-        log::debug(
-            logcat,
-            "QUIC reachability testing connection to {} closed ({})",
-            test->mn.pubkey_ed25519,
-            ec);
-        if (!*reported) {
-            // If we get called without established having been called then the connection failed.
-            test->add_result(false);
-            log::debug(
-                    logcat,
-                    "QUIC reachability test failed for {} with error code {}",
-                    test->mn.pubkey_legacy,
-                    ec);
-        }
-    };
-    ep->connect(
+    auto conn = ep->connect(
             {mn.pubkey_ed25519.view(), mn.ip, mn.omq_quic_port},
             tls_creds,
-            std::move(conn_established),
-            std::move(conn_closed),
             oxen::quic::opt::handshake_timeout{5s});
+    auto s = conn->open_stream<oxen::quic::BTRequestStream>();
+    s->command("mnode_ping", ""s, [test = std::move(test)](const oxen::quic::message& m) {
+        if (m.timed_out || m.body() != "pong"sv) {
+            log::debug(
+                    logcat,
+                    "QUIC reachability test failed for {}: {}",
+                    test->mn.pubkey_legacy,
+                    m.timed_out ? "timeout" : "unexpected response");
+            test->add_result(false);
+        } else {
+            test->add_result(true);
+        }
+        if (auto conn = m.stream()->endpoint.get_conn(m.conn_rid()))
+            conn->close_connection();
+    });
 }
 
 }  // namespace beldexss::server
