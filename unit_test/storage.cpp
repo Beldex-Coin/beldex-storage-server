@@ -370,7 +370,7 @@ TEST_CASE("storage - retrieve limit", "[storage]") {
     CHECK(storage.retrieve(pubkey2, namespace_id::Default, "", 10).first.size() == 5);
 }
 
-namespace beldex {
+namespace beldexss {
 using namespace oxen;
 class TestSuiteHacks {
   public:
@@ -394,7 +394,7 @@ TEST_CASE("storage - connection pool", "[storage][pool]") {
     user_pubkey pubkey1;
     REQUIRE(pubkey1.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
 
-    CHECK(oxen::TestSuiteHacks::db_pool_size(storage) == 1);
+    CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 1);
 
     constexpr auto blocking_time =
 #ifdef __APPLE__
@@ -404,21 +404,21 @@ TEST_CASE("storage - connection pool", "[storage][pool]") {
 #endif
     std::vector<std::thread> busy;
     for (int i = 0; i < n_blocked_threads; i++)
-        busy.emplace_back([&] { oxen::TestSuiteHacks::db_block(storage, blocking_time); });
+        busy.emplace_back([&] { beldexss::TestSuiteHacks::db_block(storage, blocking_time); });
 
     std::this_thread::sleep_for(20ms);
-    CHECK(oxen::TestSuiteHacks::db_pool_size(storage) == 0);
+    CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 0);
     auto now = std::chrono::system_clock::now();
     CHECK(storage.store(
                   {pubkey1, "hash0", namespace_id::Default, now, now + 1s, "bytesasstring0"}) ==
           StoreResult::New);
     // The blocking threads are still there, so our store should have created a new one then
     // returned it the pool:
-    CHECK(oxen::TestSuiteHacks::db_pool_size(storage) == 1);
+    CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 1);
     for (auto& b : busy)
         b.join();
 
     // Now we've waited for the blocking threads to finish, so the blocked conns should have been
     // returned to the pool:
-    CHECK(oxen::TestSuiteHacks::db_pool_size(storage) == 1 + n_blocked_threads);
+    CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 1 + n_blocked_threads);
 }
