@@ -13,20 +13,18 @@
 #include <cpr/async_wrapper.h>
 #include <beldexss/storage/database.hpp>
 #include <beldexss/crypto/keys.h>
+#include <beldexss/server/mqbase.h>
 #include "reachability_testing.h"
 #include "stats.h"
 #include "swarm.h"
 
-namespace beldexss::quic {
-struct Endpoint;
+namespace oxenss::server {
+class OMQ;
+class QUIC;
 }
 
 namespace beldexss::rpc {
 struct OnionRequestMetadata;
-}
-
-namespace beldexss::server {
-class OMQ;
 }
 
 namespace beldexss::mnode {
@@ -97,7 +95,6 @@ class MasterNode {
     std::string block_hash_;
     std::unique_ptr<Swarm> swarm_;
     std::unique_ptr<Database> db_;
-    std::shared_ptr<beldexss::quic::Endpoint> quic;
 
     MnodeStatus status_ = MnodeStatus::UNKNOWN;
 
@@ -107,10 +104,8 @@ class MasterNode {
     /// Cache for block_height/block_hash mapping
     std::map<uint64_t, std::string> block_hashes_cache_;
 
-    // Need to make sure we only use this to get OxenMQ object and
-    // not call any method that would in turn call a method in MN
-    // causing a deadlock
     server::OMQ& omq_server_;
+    std::vector<server::MQBase*> mq_servers_;
 
     std::atomic<int> beldexd_pings_ =
             0;  // Consecutive successful pings, used for batching logs about it
@@ -195,7 +190,9 @@ class MasterNode {
     Database& get_db() { return *db_; }
     const Database& get_db() const { return *db_; }
 
-    void connect_quic(std::shared_ptr<beldexss::quic::Endpoint>&);
+    // Adds a MQ server, i.e. QUIC.  The OMQ server is added automatically during construction and
+    // should not be added.
+    void register_mq_server(server::MQBase* server);
 
     // Return info about this node as it is advertised to other nodes
     const mn_record& own_address() { return our_address_; }
