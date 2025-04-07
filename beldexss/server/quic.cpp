@@ -1,26 +1,24 @@
 #include "quic.h"
-#include "beldexss/rpc/rate_limiter.h"
-
-#include <beldexss/rpc/request_handler.h>
+#include "../rpc/rate_limiter.h"
+#include "../rpc/request_handler.h"
+#include "../mnode/master_node.h"
 
 namespace beldexss::server {
 
 static auto logcat = log::Cat("ssquic");
 
 QUIC::QUIC(
+        mnode::MasterNode& mnode,
         rpc::RateLimiter& rl,
         const Address& bind,
         const crypto::ed25519_seckey& sk) :
         local{bind},
         network{std::make_unique<oxen::quic::Network>()},
         tls_creds{oxen::quic::GNUTLSCreds::make_from_ed_seckey(sk.str())},
-        ep{network->endpoint(
-            local,
-            [this](oxen::quic::connection_interface& ci, uint64_t ec) {
-                on_conn_closed(ci, ec);
-            })},
+        ep{network->endpoint(local)},
         request_handler{rh},
         command_handler{[this](quic::message m) { handle_request(std::move(m)); }} {
+    master_node_ = &mnode;
     request_handler_ = &rh;
     rate_limiter_ = &rl;
 
@@ -32,29 +30,17 @@ void QUIC::startup_endpoint() {
     });
 }
 
-void QUIC::on_conn_closed(oxen::quic::connection_interface& conn_interface, uint64_t ec) {
-    const auto& remote = conn_interface.local();
-    const auto& scid = conn_interface.scid();
-
-    log::debug(logcat, "Purging quic connection to remote address:{} (ec: {})", remote, ec);
-
-    if (const auto& itr = conns.find(scid); itr != conns.end()) {
-        conns.erase(itr);
-        log::trace(logcat, "Purged connection object (CID:{})", scid);
-    }
-
-    log::debug(
-            logcat,
-            "Quic connection (CID:{}) to remote address:{} purged successfully",
-            scid,
-            remote);
-}
-
 void QUIC::handle_monitor_message(oxen::quic::message m) {
     handle_monitor(
             m.body(),
             [&m](std::string response) { m.respond(std::move(response)); },
-            m.stream()->conn_id());
+            m.stream()->rid());
+}
+
+void QUIC::handle_ping(oxen::quic::message m) {
+    log::debug(logcat, "Remote pinged me");
+    master_node_->update_last_ping(mnode::ReachType::QUIC);
+    m.respond("pong");
 }
 
 void QUIC::handle_request(oxen::quic::message m) {
@@ -71,6 +57,9 @@ void QUIC::handle_request(oxen::quic::message m) {
 
     if (name == "monitor")
         return handle_monitor_message(std::move(m));
+
+    if (name == "mnode_ping")
+        return handle_ping(std::move(m));
 
     throw quic::no_such_endpoint{};
 }
@@ -89,11 +78,40 @@ nlohmann::json QUIC::wrap_response(
 
 void QUIC::notify(std::vector<connection_id>& conns, std::string_view notification) {
     for (const auto& c : conns)
-        if (auto* cid = std::get_if<oxen::quic::ConnectionID>(&c))  // FIXME: ConnRef or whatever
+        if (auto* cid = std::get_if<oxen::quic::ReferenceID>(&c))
             if (auto conn = ep->get_conn(*cid))
                 if (auto str = conn->get_stream<oxen::quic::BTRequestStream>(0))
                     str->command("notify", notification);
+}
 
+void QUIC::reachability_test(std::shared_ptr<mnode::mn_test> test) {
+    if (!master_node_->hf_at_least(mnode::QUIC_REACHABILITY_TESTING))
+        return test->add_result(true);
+
+    auto& mn = test->mn;
+    auto reported = std::make_shared<bool>(false);
+    auto conn_established = [reported, test](quic::connection_interface&) {
+        *reported = true;
+        test->add_result(true);
+
+        log::debug(logcat, "QUIC reachability test successful for {}", test->mn.pubkey_legacy);
+    };
+    auto conn_closed = [reported = std::move(reported), test = std::move(test)](
+                               quic::connection_interface&, uint64_t ec) {
+        if (!*reported) {
+            // If we get called without established having been called then the connection failed.
+            test->add_result(false);
+            log::debug(
+                    logcat,
+                    "QUIC reachability test failed for {} with error code {}",
+                    test->mn.pubkey_legacy,
+                    ec);
+        }
+    };
+    ep->connect(
+            {mn.pubkey_ed25519.view(), mn.ip, mn.omq_quic_port},
+            std::move(conn_established),
+            std::move(conn_closed));
 }
 
 }  // namespace beldexss::server

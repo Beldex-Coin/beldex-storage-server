@@ -18,10 +18,10 @@
 #include "stats.h"
 #include "swarm.h"
 
-namespace oxenss::server {
+namespace beldexss::server {
 class OMQ;
 class QUIC;
-}
+} //namespace beldexss::server
 
 namespace beldexss::rpc {
 struct OnionRequestMetadata;
@@ -51,6 +51,9 @@ using hf_revision = std::pair<int, int>;
 //TODO update HF version
 // The earliest hardfork *this* version of storage server will work on:
 inline constexpr hf_revision STORAGE_SERVER_HARDFORK = {12, 1};
+
+// The hardfork at which we start testing QUIC reachability
+inline constexpr hf_revision QUIC_REACHABILITY_TESTING = {12, 4};
 
 // The hardfork at which we start allowing 30d TTLs in private namespaces.
 inline constexpr hf_revision HARDFORK_EXTENDED_PRIVATE_TTL = {12, 3};

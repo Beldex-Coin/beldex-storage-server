@@ -73,7 +73,8 @@ namespace {
                          {"port",  // Deprecated string port for backwards compat; prefer https_port
                           std::to_string(mn.port)},
                          {"port_https", mn.port},
-                         {"port_omq", mn.omq_port},
+                         {"port_omq", mn.omq_quic_port},
+                         {"port_quic", mn.omq_quic_port},
                          {"ip", mn.ip}});
         }
 

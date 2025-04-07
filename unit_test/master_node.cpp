@@ -30,12 +30,12 @@ static void test_ip_update(ip_ports old_addr, ip_ports new_addr, ip_ports expect
 
     auto mn = create_dummy_mn_record();
 
-    std::tie(mn.ip, mn.port, mn.omq_port) = old_addr;
+    std::tie(mn.ip, mn.port, mn.omq_quic_port) = old_addr;
 
     beldexss::mnode::SwarmInfo si{0, std::vector<mn_record>{mn}};
     std::vector<beldexss::mnode::SwarmInfo> current{{si}};
 
-    std::tie(mn.ip, mn.port, mn.omq_port) = new_addr;
+    std::tie(mn.ip, mn.port, mn.omq_quic_port) = new_addr;
 
     beldexss::mnode::SwarmInfo si2{0, std::vector<mn_record>{mn}};
     std::vector<beldexss::mnode::SwarmInfo> incoming{{si2}};
@@ -44,7 +44,7 @@ static void test_ip_update(ip_ports old_addr, ip_ports new_addr, ip_ports expect
 
     CHECK(incoming[0].mnodes[0].ip == std::get<0>(expected));
     CHECK(incoming[0].mnodes[0].port == std::get<1>(expected));
-    CHECK(incoming[0].mnodes[0].omq_port == std::get<2>(expected));
+    CHECK(incoming[0].mnodes[0].omq_quic_port == std::get<2>(expected));
 }
 
 TEST_CASE("master nodes - updates IP address", "[master-nodes][updates]") {

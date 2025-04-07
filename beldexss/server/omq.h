@@ -37,9 +37,6 @@ class OMQ : public MQBase {
     oxenmq::OxenMQ omq_;
     oxenmq::ConnectionID beldexd_conn_;
 
-    // Has information about current MNs
-    mnode::MasterNode* master_node_ = nullptr;
-
     // Get node's address
     std::string peer_lookup(std::string_view pubkey_bin) const;
 
@@ -231,6 +228,8 @@ class OMQ : public MQBase {
             std::string_view data);
 
     void notify(std::vector<connection_id>&, std::string_view notification) override;
+
+    void reachability_test(std::shared_ptr<mnode::mn_test> test) override;
 };
 
 }  // namespace beldexss::server

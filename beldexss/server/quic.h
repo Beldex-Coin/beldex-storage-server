@@ -1,11 +1,12 @@
 #pragma once
 
-#include "beldexss/rpc/rate_limiter.h"
 #include "utils.h"
 #include "mqbase.h"
 
 #include <beldexss/crypto/keys.h>
 #include <beldexss/logging/beldex_logger.h>
+#include <beldexss/rpc/rate_limiter.h>
+#include <beldexss/mnode/master_node.h>
 
 #include <quic.hpp>
 
@@ -36,7 +37,8 @@ using RequestQueue = std::deque<PendingRequest>;
 
 class QUIC : public MQBase {
     public:
-    QUIC(rpc::RequestHandler& rh,
+    QUIC(mnode::MasterNode& mnode,
+         rpc::RequestHandler& rh,
          rpc::RateLimiter& rl,
          const Address& bind,
          const crypto::ed25519_seckey& sk);
@@ -45,8 +47,9 @@ class QUIC : public MQBase {
 
   void notify(std::vector<connection_id>&, std::string_view notification) override;
 
-  private:
+  void reachability_test(std::shared_ptr<mnode::mn_test> test) override;
 
+  private:
     const Address local;
     std::unique_ptr<quic::Network> network;
     std::shared_ptr<quic::GNUTLSCreds> tls_creds;
@@ -55,16 +58,13 @@ class QUIC : public MQBase {
     rpc::RequestHandler& request_handler;
     std::function<void(quic::message m)> command_handler;
 
-    // Holds all connections currently being managed by the quic endpoint
-    std::unordered_map<quic::ConnectionID, std::shared_ptr<quic::Connection>> conns;
-
     std::shared_ptr<quic::Endpoint> create_endpoint();
-
-    void on_conn_closed(quic::connection_interface& ci, uint64_t ec);
 
     void handle_request(quic::message m);
 
     void handle_monitor_message(quic::message m);
+
+    void handle_ping(quic::message m);
 
     nlohmann::json wrap_response(
             [[maybe_unused]] const http::response_code& status,
