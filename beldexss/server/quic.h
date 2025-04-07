@@ -8,7 +8,7 @@
 #include <beldexss/rpc/rate_limiter.h>
 #include <beldexss/mnode/master_node.h>
 
-#include <quic.hpp>
+#include <oxen/quic.hpp>
 
 namespace beldexss::rpc {
 class RequestHandler;
