@@ -289,4 +289,4 @@ class MasterNode {
 }  // namespace beldexss::mnode
 
 template <>
-inline constexpr bool beldexss::to_string_formattable<beldex::mnode::MnodeStatus> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::mnode::MnodeStatus> = true;

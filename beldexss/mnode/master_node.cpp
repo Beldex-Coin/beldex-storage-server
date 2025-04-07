@@ -208,7 +208,7 @@ static block_update parse_swarm_update(const std::string& response_body) {
     return bu;
 }
 
-void ServiceNode::register_mq_server(server::MQBase* server) {
+void MasterNode::register_mq_server(server::MQBase* server) {
     mq_servers_.push_back(server);
 }
 
@@ -796,7 +796,7 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
     }
 
     auto test = std::make_shared<mn_test>(
-            malloc,
+            mn,
             1 + mq_servers_.size(),
             [this, previous_failures](const mn_record& mn, bool passed) {
                 report_reachability(mn, passed, previous_failures);

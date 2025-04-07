@@ -14,7 +14,7 @@
 #include "../mnode/sn_record.h"
 #include "utils.h"
 
-namespace beldex {
+namespace beldexss {
 
 namespace rpc {
     class RequestHandler;

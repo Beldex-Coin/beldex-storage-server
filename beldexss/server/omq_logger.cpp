@@ -1,7 +1,7 @@
 #include <oxenmq/oxenmq.h>
 #include <beldexss/logging/beldex_logger.h>
 
-namespace oxenss {
+namespace beldexss {
 
 static auto logcat = log::Cat("omq");
 
@@ -17,4 +17,4 @@ void omq_logger(oxenmq::LogLevel level, const char* file, int line, std::string 
     }
 }
 
-}  // namespace oxenss
+}  // namespace beldexss

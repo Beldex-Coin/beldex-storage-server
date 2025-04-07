@@ -9,6 +9,7 @@ static auto logcat = log::Cat("ssquic");
 
 QUIC::QUIC(
         mnode::MasterNode& mnode,
+        rpc::RequestHandler& rh,
         rpc::RateLimiter& rl,
         const Address& bind,
         const crypto::ed25519_seckey& sk) :
@@ -21,7 +22,6 @@ QUIC::QUIC(
     master_node_ = &mnode;
     request_handler_ = &rh;
     rate_limiter_ = &rl;
-
 }
 
 void QUIC::startup_endpoint() {
@@ -34,7 +34,7 @@ void QUIC::handle_monitor_message(oxen::quic::message m) {
     handle_monitor(
             m.body(),
             [&m](std::string response) { m.respond(std::move(response)); },
-            m.stream()->reference_id());
+            m.stream()->reference_id);
 }
 
 void QUIC::handle_ping(oxen::quic::message m) {
@@ -102,6 +102,10 @@ void QUIC::reachability_test(std::shared_ptr<mnode::mn_test> test) {
                     m.timed_out ? "timeout" : "unexpected response");
             test->add_result(false);
         } else {
+            log::debug(
+                    logcat,
+                    "Successful response to QUIC reachability ping test of {}",
+                    test->mn.pubkey_legacy);
             test->add_result(true);
         }
         if (auto conn = m.stream()->endpoint.get_conn(m.conn_rid()))
