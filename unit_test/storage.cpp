@@ -382,7 +382,7 @@ class TestSuiteHacks {
         return db.impl_pool_.size();
     }
 };
-}  // namespace beldex
+}  // namespace beldexss
 
 TEST_CASE("storage - connection pool", "[storage][pool]") {
     StorageDeleter fixture;
