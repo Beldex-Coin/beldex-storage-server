@@ -483,7 +483,10 @@ bool MasterNode::process_store(message msg, bool* new_msg) {
     } else if (new_msg)
         *new_msg = false;
 
-    return true;
+    if (result == StoreResult::New)
+        omq_server_.send_notifies(std::move(msg));
+
+    return result != StoreResult::Full;
 }
 
 void MasterNode::save_bulk(const std::vector<message>& msgs) {
