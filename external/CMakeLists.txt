@@ -60,6 +60,8 @@ macro(system_or_submodule BIGNAME smallname pkgconf subdir)
   endif()
 endmacro()
 
+set(BELDEX_LOGGING_SOURCE_ROOT "${BELDEX_LOGGING_SOURCE_ROOT};${PROJECT_SOURCE_DIR}" CACHE INTERNAL "")
+
 set(LIBQUIC_BUILD_TESTS OFF CACHE BOOL "")
 add_subdirectory(oxen-libquic)
 
