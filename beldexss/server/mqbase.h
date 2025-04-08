@@ -107,8 +107,10 @@ class MQBase {
             message& m, std::vector<connection_id>& to, std::vector<connection_id>& with_data);
 
     virtual void notify(std::vector<connection_id>&, std::string_view notification) = 0;
+    
     virtual void reachability_test(std::shared_ptr<mnode::mn_test> test) = 0;
 
+    virtual ~MQBase() = default;
 
   private:
     void handle_monitor_message_single(
