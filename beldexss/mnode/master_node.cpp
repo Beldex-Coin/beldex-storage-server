@@ -463,9 +463,9 @@ void MasterNode::send_notifies(message msg) {
             s->notify(relay_to_with_data, d.view());
     }
 }
-bool MasterNode::process_store(message msg, bool* new_msg) {
+bool MasterNode::process_store(
+        message msg, bool* new_msg, std::chrono::system_clock::time_point* expiry) {
     std::lock_guard guard{mn_mutex_};
-
     /// only accept a message if we are in a swarm
     if (!swarm_) {
         // This should never be printed now that we have "mnode_ready"
@@ -476,15 +476,12 @@ bool MasterNode::process_store(message msg, bool* new_msg) {
     all_stats_.bump_store_requests();
 
     /// store in the database (if not already present)
-    if (db_->store(msg) == StoreResult::New) {
-        send_notifies(std::move(msg));
-        if (new_msg)
-            *new_msg = true;
-    } else if (new_msg)
-        *new_msg = false;
+    const auto result = db_->store(msg, expiry);
+    if (new_msg)
+        *new_msg = result == StoreResult::New;
 
     if (result == StoreResult::New)
-        omq_server_.send_notifies(std::move(msg));
+        send_notifies(std::move(msg));
 
     return result != StoreResult::Full;
 }
