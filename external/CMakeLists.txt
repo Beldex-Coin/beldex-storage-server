@@ -60,6 +60,10 @@ macro(system_or_submodule BIGNAME smallname pkgconf subdir)
   endif()
 endmacro()
 
+set(BELDEX_LOGGING_SOURCE_ROOT "${PROJECT_SOURCE_DIR}/beldexss" CACHE INTERNAL "")
+
+system_or_submodule(OXENC oxenc liboxenc>=1.0.10 oxenc)
+
 set(BELDEX_LOGGING_SOURCE_ROOT "${BELDEX_LOGGING_SOURCE_ROOT};${PROJECT_SOURCE_DIR}" CACHE INTERNAL "")
 
 set(LIBQUIC_BUILD_TESTS OFF CACHE BOOL "")
@@ -70,7 +74,12 @@ set(JSON_MultipleHeaders ON CACHE BOOL "") # Allows multi-header nlohmann use
 system_or_submodule(NLOHMANN nlohmann_json nlohmann_json>=3.7.0 nlohmann_json)
 system_or_submodule(CLI11 CLI11 CLI11>=2.2.0 CLI11)
 
-set(BELDEX_LOGGING_SOURCE_ROOT "${BELDEX_LOGGING_SOURCE_ROOT};${PROJECT_SOURCE_DIR}" CACHE INTERNAL "")
+
+if (STATIC OR FORCE_SPDLOG_SUBMODULE OR FORCE_FMT_SUBMODULE)
+    set(BELDEX_LOGGING_FORCE_SUBMODULES ON CACHE INTERNAL "")
+endif()
+add_subdirectory(oxen-logging)
+
 
 # uSockets doesn't really have a proper build system (just a very simple Makefile) so build it
 # ourselves.
