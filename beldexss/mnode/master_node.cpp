@@ -759,8 +759,9 @@ void MasterNode::ping_peers() {
     auto now = std::chrono::steady_clock::now();
 
     // Check if we've been tested (reached) recently ourselves
-    reach_records_.check_incoming_tests(now,
-        /*quic=*/ hf_at_least(QUIC_REACHABILITY_TESTING));
+    reach_records_.check_incoming_tests(
+        now,
+        /*quic=*/hf_at_least(QUIC_REACHABILITY_TESTING));
 
     if (status_ == MnodeStatus::DECOMMISSIONED) {
         log::trace(logcat, "Skipping peer testing (decommissioned)");

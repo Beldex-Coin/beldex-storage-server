@@ -1209,13 +1209,13 @@ void RequestHandler::process_client_req(rpc::expire_msgs&& req, std::function<vo
     auto now = system_clock::now();
     for (const auto& exp : req.expiry) {
         if (exp < now - 1min) {
-        log::debug(
-                logcat,
-                "expire: invalid timestamp ({}s ago)",
+            log::debug(
+                    logcat,
+                    "expire: invalid timestamp ({}s ago)",
                     duration_cast<seconds>(now - exp).count());
             return cb(
                     Response{http::UNAUTHORIZED, "expire: timestamp should be >= current time"sv});
-    }
+        }
 
         expiry.push_back(std::min(now + TTL_MAXIMUM_PRIVATE, exp));
     }
