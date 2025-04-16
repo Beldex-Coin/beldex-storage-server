@@ -69,7 +69,7 @@ set(BELDEX_LOGGING_SOURCE_ROOT "${BELDEX_LOGGING_SOURCE_ROOT};${PROJECT_SOURCE_D
 set(LIBQUIC_BUILD_TESTS OFF CACHE BOOL "")
 system_or_submodule(OXENQUIC quic liboxenquic>=1.0.1 oxen-libquic)
 
-system_or_submodule(OXENMQ oxenmq liboxenmq>=1.2.13 oxen-mq)
+system_or_submodule(OXENMQ oxenmq liboxenmq>=1.2.17 oxen-mq)
 set(JSON_MultipleHeaders ON CACHE BOOL "") # Allows multi-header nlohmann use
 system_or_submodule(NLOHMANN nlohmann_json nlohmann_json>=3.7.0 nlohmann_json)
 system_or_submodule(CLI11 CLI11 CLI11>=2.2.0 CLI11)
