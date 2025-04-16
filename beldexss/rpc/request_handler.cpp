@@ -96,7 +96,7 @@ namespace {
         const auto& pk_raw = pk.raw();
         if (pk_raw.empty())
             return "(none)";
-        return oxenc::to_hex(pk_raw.begin(), pk_raw.begin() + 2) + u8"…" +
+        return oxenc::to_hex(pk_raw.begin(), pk_raw.begin() + 2) + "…" +
                oxenc::to_hex(std::prev(pk_raw.end()), pk_raw.end());
     }
 
@@ -526,7 +526,7 @@ void RequestHandler::process_client_req(rpc::store&& req, std::function<void(Res
             auto err = fmt::format(
                     "store: signature required to store to namespace {}",
                     to_int(req.msg_namespace));
-            log::warning(logcat, err);
+            log::warning(logcat, "{}", err);
             return cb(Response{http::UNAUTHORIZED, err});
         }
         if (*req.sig_ts < now - SIGNATURE_TOLERANCE || *req.sig_ts > now + SIGNATURE_TOLERANCE) {
@@ -754,7 +754,7 @@ void RequestHandler::process_client_req(
         auto msg = fmt::format(
                 "Internal Server Error. Could not retrieve messages for {}",
                 obfuscate_pubkey(req.pubkey));
-        log::critical(logcat, msg);
+        log::critical(logcat, "{}", msg);
         return cb(Response{http::INTERNAL_SERVER_ERROR, std::move(msg)});
     }
 

@@ -44,3 +44,6 @@ vendors/spdlog
 
 # Swapfiles
 **/*.swp
+
+# clangd cache
+.cache

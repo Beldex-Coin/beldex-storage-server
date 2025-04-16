@@ -162,7 +162,7 @@ void generate_dh_pem(const std::filesystem::path& dh_path) {
 
     log::info(logcat, "DH parameter done!");
     FILE* pFile = NULL;
-    pFile = fopen(dh_path.u8string().c_str(), "wt");
+    pFile = fopen(reinterpret_cast<const char*>(dh_path.u8string().c_str()), "wt");
     PEM_write_DHparams(pFile, dh);
     fclose(pFile);
 }
@@ -182,10 +182,10 @@ void generate_cert(const std::filesystem::path& cert_path, const std::filesystem
         goto err;
     // X509_print_fp(stdout, x509);
 
-    key_f = fopen(key_path.u8string().c_str(), "wt");
+    key_f = fopen(reinterpret_cast<const char*>(key_path.u8string().c_str()), "wt");
     if (!PEM_write_PrivateKey(key_f, pkey, NULL, NULL, 0, NULL, NULL))
         goto err;
-    cert_f = fopen(cert_path.u8string().c_str(), "wt");
+    cert_f = fopen(reinterpret_cast<const char*>(cert_path.u8string().c_str()), "wt");
     PEM_write_X509(cert_f, x509);
 
 err:

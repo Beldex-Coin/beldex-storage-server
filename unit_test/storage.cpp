@@ -392,7 +392,7 @@ TEST_CASE("storage - connection pool", "[storage][pool]") {
     auto n_blocked_threads = GENERATE(1, 2, 5, 10);
 
     user_pubkey pubkey1;
-    REQUIRE(pubkey1.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    REQUIRE(pubkey1.load("bd0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
     
     CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 1);
 

@@ -274,11 +274,11 @@ namespace {
             const std::optional<T2>& b,
             bool alias = false) {
         require_at_most_one_of(first, a, second, b);
-        if (!(a || b))
-            throw parse_error{fmt::format(
-                    alias ? "Required field '{}' missing" : "Required field '{}' or '{}' missing",
-                    first,
-                    second)};
+        if (!(a || b)) {
+            throw parse_error{
+                    alias ? "Required field '{}' missing"_format(first)
+                          : "Required field '{}' or '{}' missing"_format(first, second)};
+        }
     }
 
     template <typename RPC>

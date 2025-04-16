@@ -84,15 +84,15 @@ std::string short_duration(std::chrono::duration<double> dur) {
         return fmt::format("{:.1f}s", dur / 1s);
 
     if (dur >= 100ms)
-        return fmt::format(u8"{:.0f}ms", dur / 1ms);
+        return fmt::format("{:.0f}ms", dur / 1ms);
     if (dur >= 1ms)
-        return fmt::format(u8"{:.1f}ms", dur / 1ms);
+        return fmt::format("{:.1f}ms", dur / 1ms);
     if (dur >= 100us)
-        return fmt::format(u8"{:.0f}µs", dur / 1us);
+        return fmt::format("{:.0f}µs", dur / 1us);
     if (dur >= 1us)
-        return fmt::format(u8"{:.1f}µs", dur / 1us);
+        return fmt::format("{:.1f}µs", dur / 1us);
     if (dur >= 1ns)
-        return fmt::format(u8"{:.0f}ns", dur / 1ns);
+        return fmt::format("{:.0f}ns", dur / 1ns);
     return "0s";
 }
 
@@ -125,7 +125,7 @@ std::string friendly_duration(std::chrono::nanoseconds dur) {
         else if (dur >= 1ms)
             os << seconds * 1000 << "ms";
         else if (dur >= 1us)
-            os << seconds * 1'000'000 << u8"µs";
+            os << seconds * 1'000'000 << "µs";
         else
             os << seconds * 1'000'000'000 << "ns";
     }

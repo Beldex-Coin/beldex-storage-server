@@ -194,9 +194,9 @@ int main(int argc, char* argv[]) {
 #endif
 
         // Log general stats at startup and again every hour
-        log::info(logcat, master_node.get_status_line());
+        log::info(logcat, "{}", master_node.get_status_line());
         oxenmq_server->add_timer(
-                [&master_node] { log::info(logcat, master_node.get_status_line()); }, 1h);
+                [&master_node] { log::info(logcat, "{}", master_node.get_status_line()); }, 1h);
 
         while (signalled.load() == 0)
             std::this_thread::sleep_for(100ms);

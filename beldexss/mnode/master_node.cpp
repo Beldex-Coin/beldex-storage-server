@@ -274,7 +274,7 @@ void MasterNode::bootstrap_data() {
                 connid,
                 "rpc.get_master_nodes",
                 [this, connid, addr, req_counter, node_count = (int)seed_nodes.size()](
-                        bool success, auto data) {
+                        bool success, std::vector<std::string> data) {
                     if (!success)
                         log::error(
                                 logcat,
@@ -292,6 +292,7 @@ void MasterNode::bootstrap_data() {
                                 logcat,
                                 "Failed to request bootstrap node data from {}: request returned "
                                 "failure status {}",
+                                addr.full_address(),
                                 data[0]);
                     else {
                         log::info(
@@ -794,7 +795,7 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
         // hasn't sent an uptime proof; we could treat it as a failure, but that seems
         // unnecessary since beldexd will already fail the master node for not sending uptime
         // proofs.
-        log::debug(logcat, "Skipping testing test of {}: no public IP received yet");
+        log::debug(logcat, "Skipping testing of {}: no public IP received yet", mn.pubkey_legacy);
         return;
     }
 
@@ -1374,7 +1375,7 @@ std::string MasterNode::get_status_line() const {
         s << "NONE";
     else {
         std::string swarm = fmt::format("{:016x}", swarm_->our_swarm_id());
-        s << swarm.substr(0, 4) << u8"…" << swarm.substr(swarm.size() - 3);
+        s << swarm.substr(0, 4) << "…" << swarm.substr(swarm.size() - 3);
         s << "(n=" << (1 + swarm_->other_nodes().size()) << ")";
     }
     s << "; " << db_->get_message_count() << " msgs";
