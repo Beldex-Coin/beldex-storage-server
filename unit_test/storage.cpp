@@ -393,6 +393,13 @@ TEST_CASE("storage - connection pool", "[storage][pool]") {
 
     user_pubkey pubkey1;
     REQUIRE(pubkey1.load("050123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+    
+    CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 1);
+
+    auto now = std::chrono::system_clock::now();
+    CHECK(storage.store(
+                  {pubkey1, "hash0", namespace_id::Default, now, now + 1s, "bytesasstring0"}) ==
+          StoreResult::New);
 
     CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 1);
 
@@ -402,17 +409,16 @@ TEST_CASE("storage - connection pool", "[storage][pool]") {
 #else
             100ms;
 #endif
+
     std::vector<std::thread> busy;
     for (int i = 0; i < n_blocked_threads; i++)
         busy.emplace_back([&] { beldexss::TestSuiteHacks::db_block(storage, blocking_time); });
 
     std::this_thread::sleep_for(20ms);
+
     CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 0);
-    auto now = std::chrono::system_clock::now();
-    CHECK(storage.store(
-                  {pubkey1, "hash0", namespace_id::Default, now, now + 1s, "bytesasstring0"}) ==
-          StoreResult::New);
-    // The blocking threads are still there, so our store should have created a new one then
+    CHECK(storage.retrieve_by_hash("hash0"));
+    // The blocking threads are still there, so our retrieve should have created a new one then
     // returned it the pool:
     CHECK(beldexss::TestSuiteHacks::db_pool_size(storage) == 1);
     for (auto& b : busy)
