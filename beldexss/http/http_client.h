@@ -19,7 +19,7 @@ class Client {
     using response_callback = std::function<void(cpr::Response r)>;
 
     // Starts a new client, attaching itself to the event loop and ready for requests.
-    explicit Client(oxen::quic::Network* loop);
+    explicit Client(std::shared_ptr<oxen::quic::Loop> loop);
 
     // Non-copyable, non-movable
     Client(const Client&) = delete;
