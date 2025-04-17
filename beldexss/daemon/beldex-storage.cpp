@@ -166,13 +166,17 @@ int main(int argc, char* argv[]) {
                 ssl_dh,
                 {me.pubkey_legacy, private_key}};
 
-        auto quic = std::make_shared<server::QUIC>(
+        auto quic = std::make_unique<server::QUIC>(
                 master_node,
                 request_handler,
                 rate_limiter,
                 oxen::quic::Address{options.ip, options.omq_quic_port},
                 private_key_ed25519);
         master_node.register_mq_server(quic.get());
+
+        auto http_client = std::make_shared<http::Client>(&quic->net());
+        master_node.set_http_client(http_client);
+        request_handler.set_http_client(http_client);
 
         oxenmq_server.init(
             &master_node,
@@ -202,6 +206,7 @@ int main(int argc, char* argv[]) {
             std::this_thread::sleep_for(100ms);
 
         log::warning(logcat, "Received signal {}; shutting down...", signalled.load());
+        http_client.reset();  // Kills outgoing requests and prevents new ones
         master_node.shutdown();
         log::info(logcat, "Stopping https server");
         https_server.shutdown(true);

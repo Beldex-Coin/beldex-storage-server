@@ -13,7 +13,6 @@
 #include <beldexss/utils/random.hpp>
 
 #include <chrono>
-#include <cpr/cpr.h>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <oxenc/base32z.h>
@@ -62,14 +61,6 @@ MasterNode::MasterNode(
                 db_->clean_expired();
             },
             Database::CLEANUP_PERIOD);
-
-    // Periodically clean up any https request futures
-    omq_server_->add_timer(
-            [this] {
-                outstanding_https_reqs_.remove_if(
-                        [](auto& f) { return f.wait_for(0ms) == std::future_status::ready; });
-            },
-            1s);
 
     // We really want to make sure nodes don't get stuck in "syncing" mode,
     // so if we are still "syncing" after a long time, activate MN regardless
@@ -789,6 +780,11 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
             "Testing {} MN {} for reachability",
             previous_failures > 0 ? "previously failing" : "random",
             mn.pubkey_legacy);
+    auto http = http_.lock();
+    if (!http) {
+        log::debug(logcat, "Skipping reachability test during shutdown");
+        return;
+    }
 
     if (mn.ip == "0.0.0.0") {
         // beldexd won't accept 0.0.0.0 in an uptime proof, which means if we see this the node
@@ -809,18 +805,13 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
     for (auto* mq : mq_servers_)
         mq->reachability_test(test);
 
-    cpr::Url url{fmt::format("https://{}:{}/ping_test/v1", mn.ip, mn.port)};
-    cpr::Body body{""};
-    cpr::Header headers{
-            {"Host",
-             mn.pubkey_ed25519 ? oxenc::to_base32z(mn.pubkey_ed25519.view()) + ".mnode"
-                               : "master-node.mnode"},
-            {"Content-Type", "application/octet-stream"},
-            {"User-Agent", "Beldex Storage Server/" + std::string{STORAGE_SERVER_VERSION_STRING}},
-    };
+    auto url = fmt::format("https://{}:{}/ping_test/v1", mn.ip, mn.port);
+    std::optional<std::string> host;
+    if (mn.pubkey_ed25519)
+        host = oxenc::to_base32z(mn.pubkey_ed25519.view()) + ".mnode";
 
-    log::debug(logcat, "Sending HTTPS ping to {} @ {}", mn.pubkey_legacy, url.str());
-    outstanding_https_reqs_.emplace_front(cpr::PostCallback(
+    log::debug(logcat, "Sending HTTPS ping to {} @ {}", mn.pubkey_legacy, url);
+    http->post(
             [test](cpr::Response r) {
                 auto& mn = test->mn;
                 auto& pk = mn.pubkey_legacy;
@@ -857,16 +848,10 @@ void MasterNode::test_reachability(const mn_record& mn, int previous_failures) {
                 test->add_result(success);
             },
             std::move(url),
-            cpr::Timeout{MN_PING_TIMEOUT},
-            cpr::Ssl(
-                    cpr::ssl::TLSv1_2{},
-                    cpr::ssl::VerifyHost{false},
-                    cpr::ssl::VerifyPeer{false},
-                    cpr::ssl::VerifyStatus{false}),
-            cpr::Redirect{0L},
-            std::move(headers),
-            std::move(body)));
-
+            ""s /*body*/,
+            MN_PING_TIMEOUT,
+            std::move(host),
+            true /*disable https validation*/);
 }
 
 void MasterNode::beldexd_ping() {

@@ -13,7 +13,7 @@ endif()
 cmake_minimum_required(VERSION 3.13)
 
 project(beldexss
-    VERSION 2.7.0
+    VERSION 2.7.1
     LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)

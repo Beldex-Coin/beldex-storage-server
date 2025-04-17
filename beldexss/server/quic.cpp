@@ -38,9 +38,8 @@ QUIC::QUIC(
         const Address& bind,
         const crypto::ed25519_seckey& sk) :
         local{bind},
-        network{std::make_unique<quic::Network>()},
         tls_creds{quic::GNUTLSCreds::make_from_ed_seckey(sk.str())},
-        ep{network->endpoint(
+        ep{network.endpoint(
             local,
             make_endpoint_static_secret(sk),
             quic::opt::inbound_alpns{{uALPN}},

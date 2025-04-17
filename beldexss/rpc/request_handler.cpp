@@ -14,9 +14,7 @@
 #include <beldexss/crypto/channel_encryption.hpp>
 
 #include <chrono>
-#include <future>
 
-#include <cpr/cpr.h>
 #include <nlohmann/json.hpp>
 #include <oxenc/base32z.h>
 #include <oxenc/base64.h>
@@ -27,7 +25,6 @@
 #include <sodium/crypto_scalarmult_curve25519.h>
 #include <sodium/crypto_scalarmult_ed25519.h>
 #include <sodium/crypto_sign.h>
-#include <stdexcept>
 #include <type_traits>
 #include <variant>
 
@@ -376,15 +373,7 @@ std::string computeMessageHash(const user_pubkey& pubkey, namespace_id ns, std::
 
 RequestHandler::RequestHandler(
         mnode::MasterNode& mn, const crypto::ChannelEncryption& ce, crypto::ed25519_seckey edsk) :
-        master_node_{mn}, channel_cipher_(ce), ed25519_sk_{std::move(edsk)} {
-    // Periodically clean up any proxy request futures
-    master_node_.omq_server()->add_timer(
-            [this] {
-                pending_proxy_requests_.remove_if(
-                        [](auto& f) { return f.wait_for(0ms) == std::future_status::ready; });
-            },
-            1s);
-}
+        master_node_{mn}, channel_cipher_(ce), ed25519_sk_{std::move(edsk)} {}
 
 Response RequestHandler::handle_wrong_swarm(const user_pubkey& pubKey) {
     log::trace(logcat, "Got client request to a wrong swarm");
@@ -1755,39 +1744,37 @@ void RequestHandler::process_onion_req(RelayToServerInfo&& info, OnionRequestMet
 
     master_node_.record_proxy_request();
 
-    pending_proxy_requests_.emplace_front(cpr::PostCallback(
-            [&omq = *master_node_.omq_server(), cb = std::move(data.cb)](cpr::Response r) {
-                Response res;
-                if (r.error.code != cpr::ErrorCode::OK) {
-                    log::debug(
-                            logcat,
-                            "Onion proxied request to {} failed: {}",
-                            r.url.str(),
-                            r.error.message);
-                    res.body = r.error.message;
-                    if (r.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT)
-                        res.status = http::GATEWAY_TIMEOUT;
-                    else
-                        res.status = http::BAD_GATEWAY;
-                } else {
-                    res.status.first = r.status_code;
-                    res.status.second = r.status_line;
-                    for (auto& [k, v] : r.header)
-                        res.headers.emplace_back(std::move(k), std::move(v));
-                    res.body = std::move(r.text);
-                }
+    if (auto http = http_.lock()) {
+        http->post(
+                [&omq = *master_node_.omq_server(), cb = std::move(data.cb)](cpr::Response r) {
+                    Response res;
+                    if (r.error.code != cpr::ErrorCode::OK) {
+                        log::debug(
+                                logcat,
+                                "Onion proxied request to {} failed: {}",
+                                r.url.str(),
+                                r.error.message);
+                        res.body = r.error.message;
+                        if (r.error.code == cpr::ErrorCode::OPERATION_TIMEDOUT)
+                            res.status = http::GATEWAY_TIMEOUT;
+                        else
+                            res.status = http::BAD_GATEWAY;
+                    } else {
+                        res.status.first = r.status_code;
+                        res.status.second = r.status_line;
+                        for (auto& [k, v] : r.header)
+                            res.headers.emplace_back(std::move(k), std::move(v));
+                        res.body = std::move(r.text);
+                    }
 
-                cb(std::move(res));
-            },
-            cpr::Url{std::move(urlstr)},
-            cpr::Header{
-                    {"User-Agent",
-                     "Beldex Storage Server/" + std::string{STORAGE_SERVER_VERSION_STRING}},
-                    {"Content-Type", "application/octet-stream"}},
-            cpr::Timeout{ONION_URL_TIMEOUT},
-            cpr::Ssl(cpr::ssl::TLSv1_2{}),
-            cpr::Redirect{0L},
-            cpr::Body{std::move(info.payload)}));
+                    cb(std::move(res));
+                },
+                std::move(urlstr),
+                std::move(info.payload),
+                ONION_URL_TIMEOUT);
+    } else {
+        log::warning(logcat, "Ignoring onion relay request received during shutdown");
+    }
 }
 
 void RequestHandler::process_onion_req(

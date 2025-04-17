@@ -49,9 +49,11 @@ class QUIC : public MQBase {
 
   void reachability_test(std::shared_ptr<mnode::mn_test> test) override;
 
+  oxen::quic::Network& net() { return network; }
+
   private:
     const Address local;
-    std::unique_ptr<quic::Network> network;
+    quic::Network network;
     std::shared_ptr<quic::GNUTLSCreds> tls_creds;
     std::shared_ptr<quic::Endpoint> ep;
 
