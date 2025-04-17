@@ -414,8 +414,7 @@ def test_revoke_subaccount(omq, random_mn, sk, exclude):
     assert len(r) == 1
     r = json.loads(r[0])
     assert len(r["revoked_subaccounts"]) == 1
-    assert r["revoked_subaccounts"][0]["token_b64"] == b64(dude_token)
-    assert r["revoked_subaccounts"][0]["token_hex"] == dude_token.hex()
+    assert r["revoked_subaccounts"][0] == b64(dude_token)
 
     # But the one in the revoked-keys-allowed namespace should work:
     r = omq.request_future(

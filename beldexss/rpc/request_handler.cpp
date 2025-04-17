@@ -1168,10 +1168,7 @@ void RequestHandler::process_client_req(
 
     json messages = json::array();
     for (const auto& revoked_subaccount : revoked_subaccounts) {
-        messages.push_back(json{
-                {"token_hex", oxenc::to_hex(revoked_subaccount)},
-                {"token_b64", oxenc::to_base64(revoked_subaccount)},
-        });
+        messages.push_back(req.b64 ? oxenc::to_base64(revoked_subaccount) : revoked_subaccount);
     }
 
     json res{{"revoked_subaccounts", std::move(messages)}};
