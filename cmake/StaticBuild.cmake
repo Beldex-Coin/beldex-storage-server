@@ -221,8 +221,10 @@ set(OPENSSL_INCLUDE_DIR ${DEPS_DESTDIR}/include)
 
 
 build_external(sqlite3
+  CONFIGURE_COMMAND ./configure ${cross_host} --disable-shared --prefix=${DEPS_DESTDIR}
+    "CC=${deps_cc}" "CFLAGS=${deps_CFLAGS}" ${cross_extra}
   BUILD_COMMAND true
-  INSTALL_COMMAND make install-includeHEADERS install-libLTLIBRARIES)
+  INSTALL_COMMAND make install-headers install-lib)
 add_static_target(SQLite::SQLite3 sqlite3_external libsqlite3.a)
 
 

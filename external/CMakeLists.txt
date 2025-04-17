@@ -209,9 +209,9 @@ if(NOT BUILD_STATIC_DEPS) # Under BUILD_STATIC_DEPS the SQLite::SQLite3 target i
       URL ${sqlite_urls}
       URL_HASH ${SQLITE3_HASH}
       DOWNLOAD_NO_PROGRESS ON
-      CONFIGURE_COMMAND ./configure --disable-shared --prefix=${CMAKE_CURRENT_BINARY_DIR}/sqlite3 --with-pic "CC=${deps_cc}" "CFLAGS=${deps_CFLAGS}"
+      CONFIGURE_COMMAND ./configure --disable-shared --prefix=${CMAKE_CURRENT_BINARY_DIR}/sqlite3 "CC=${deps_cc}" "CFLAGS=${deps_CFLAGS}"
       BUILD_COMMAND true
-      INSTALL_COMMAND make install-includeHEADERS install-libLTLIBRARIES
+      INSTALL_COMMAND make install-headers install-lib
       BUILD_BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/sqlite3/lib/libsqlite3.a ${CMAKE_CURRENT_BINARY_DIR}/sqlite3/include/sqlite3.h
       )
     add_library(SQLite::SQLite3 STATIC IMPORTED GLOBAL)
