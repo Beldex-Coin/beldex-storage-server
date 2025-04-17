@@ -1117,6 +1117,69 @@ void RequestHandler::process_client_req(
         reply_or_fail(std::move(res));
 }
 
+void RequestHandler::process_client_req(
+        rpc::revoked_subaccounts&& req, std::function<void(Response)> cb) {
+    log::debug(logcat, "processing revoked_subaccounts request");
+
+    if (!master_node_.is_pubkey_for_us(req.pubkey))
+        return cb(handle_wrong_swarm(req.pubkey));
+
+    auto now = system_clock::now();
+    if (req.timestamp < now - SIGNATURE_TOLERANCE || req.timestamp > now + SIGNATURE_TOLERANCE) {
+        log::debug(
+                logcat,
+                "revoked_subaccounts: invalid timestamp ({}s from now)",
+                duration_cast<seconds>(req.timestamp - now).count());
+        return cb(Response{
+                http::NOT_ACCEPTABLE, "revoked_subaccounts timestamp too far from current time"sv});
+    }
+
+    if (!verify_signature(
+                master_node_.get_db(),
+                req.pubkey,
+                std::nullopt,
+                std::nullopt,  // no subaccount allowed
+                subaccount_access::None,
+                false,
+                req.signature,
+                "revoked_subaccounts",
+                req.timestamp)) {
+        log::debug(logcat, "revoked_subaccounts: signature verification failed");
+        return cb(Response{
+                http::UNAUTHORIZED, "revoked_subaccounts signature verification failed"sv});
+    }
+
+    std::vector<std::string> revoked_subaccounts;
+    try {
+        revoked_subaccounts = master_node_.get_db().revoked_subaccounts(req.pubkey);
+    } catch (const std::exception& e) {
+        auto msg = fmt::format(
+                "Internal Server Error. Could not retrieve revoked_subaccounts for {}",
+                obfuscate_pubkey(req.pubkey));
+        log::critical(logcat, "{}", msg);
+        return cb(Response{http::INTERNAL_SERVER_ERROR, std::move(msg)});
+    }
+
+    log::trace(
+            logcat,
+            "Retrieved {} revoked_subaccounts for {}",
+            revoked_subaccounts.size(),
+            obfuscate_pubkey(req.pubkey));
+
+    json messages = json::array();
+    for (const auto& revoked_subaccount : revoked_subaccounts) {
+        messages.push_back(json{
+                {"token_hex", oxenc::to_hex(revoked_subaccount)},
+                {"token_b64", oxenc::to_base64(revoked_subaccount)},
+        });
+    }
+
+    json res{{"revoked_subaccounts", std::move(messages)}};
+    add_misc_response_fields(res, master_node_, now);
+
+    return cb(Response{http::OK, std::move(res)});
+}
+
 void RequestHandler::process_client_req(rpc::expire_all&& req, std::function<void(Response)> cb) {
     log::debug(logcat, "processing expire_all {} request", req.recurse ? "direct" : "forwarded");
 
