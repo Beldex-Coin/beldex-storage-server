@@ -2,6 +2,7 @@
 #include <beldexss/logging/beldex_logger.h>
 #include <beldexss/version.h>
 #include <beldexss/common/format.h>
+#include <beldexss/utils/string_utils.hpp>
 
 #include <CLI/CLI.hpp>
 #include <CLI/Error.hpp>
@@ -124,7 +125,7 @@ parse_result parse_cli_args(int argc, char* argv[]) {
     }
 
     options.data_dir = base_dir / "storage";
-    options.beldexd_omq_rpc = "ipc://{}"_format(base_dir / "beldexd.sock");
+    options.beldexd_omq_rpc = "ipc://{}"_format(util::to_sv((base_dir / "beldexd.sock").u8string()));
     data_dir = base_dir / "storage";
 
     cli.add_option("--data-dir", options.data_dir, "Path in which to store persistent data")
@@ -132,8 +133,7 @@ parse_result parse_cli_args(int argc, char* argv[]) {
             ->capture_default_str();
     cli.set_config(
                "--config-file",
-               reinterpret_cast<const char*>(
-                       (options.data_dir / "storage-server.conf").u8string().c_str()),
+               util::to_str((options.data_dir / "storage-server.conf").u8string()),
                "Path to config file specifying additional command-line options")
             ->capture_default_str();
     cli.add_option(

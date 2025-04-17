@@ -148,6 +148,14 @@ T make_from_guts(std::basic_string_view<std::byte> s) {
     return make_from_guts<T>(std::string_view{reinterpret_cast<const char*>(s.data()), s.size()});
 }
 
+inline std::string_view to_sv(std::u8string_view u8s) {
+    return std::string_view{reinterpret_cast<const char*>(u8s.data()), u8s.size()};
+}
+
+inline std::string to_str(std::u8string_view u8s) {
+    return std::string{to_sv(u8s)};
+}
+
 std::string lowercase_ascii_string(std::string_view src);
 
 /// Converts a duration into a human friendlier string, such as "3d7h47m12s" or "347µs"
