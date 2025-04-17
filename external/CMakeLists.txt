@@ -60,11 +60,7 @@ macro(system_or_submodule BIGNAME smallname pkgconf subdir)
   endif()
 endmacro()
 
-set(BELDEX_LOGGING_SOURCE_ROOT "${PROJECT_SOURCE_DIR}/beldexss" CACHE INTERNAL "")
-
 system_or_submodule(OXENC oxenc liboxenc>=1.0.10 oxenc)
-
-set(BELDEX_LOGGING_SOURCE_ROOT "${BELDEX_LOGGING_SOURCE_ROOT};${PROJECT_SOURCE_DIR}" CACHE INTERNAL "")
 
 set(LIBQUIC_BUILD_TESTS OFF CACHE BOOL "")
 system_or_submodule(OXENQUIC quic liboxenquic>=1.0.0 oxen-libquic)
@@ -81,6 +77,8 @@ endif()
 if(NOT TARGET oxen::logging)
   add_subdirectory(oxen-logging)
 endif()
+oxen_logging_add_source_dir("${PROJECT_SOURCE_DIR}")
+oxen_logging_add_source_dir("${PROJECT_SOURCE_DIR}/beldexss")
 
 # uSockets doesn't really have a proper build system (just a very simple Makefile) so build it
 # ourselves.
