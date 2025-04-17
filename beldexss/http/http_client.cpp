@@ -133,7 +133,6 @@ void Client::check_multi_info() {
             }
             active_reqs.erase(it);
             curl_multi_remove_handle(curl_multi, message->easy_handle);
-            break;
         } else {
             log::warning(
                     logcat,
