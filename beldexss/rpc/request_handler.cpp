@@ -111,11 +111,8 @@ namespace {
     template <typename RPC>
     void register_client_rpc_endpoint(RequestHandler::rpc_map& regs) {
         RequestHandler::rpc_handler calls;
-        calls.load_req = [](std::variant<json, oxenc::bt_dict_consumer> params) -> client_request {
-            return std::visit(
-                    [](auto&& params) { return load_request<RPC>(std::move(params)); },
-                    std::move(params));
-        };
+        calls.load_json = load_request<RPC, nlohmann::json>;
+        calls.load_bt = load_request<RPC, oxenc::bt_dict_consumer>;
         calls.http_json = [](RequestHandler& h, json params, std::function<void(Response)> cb) {
             auto req = load_request<RPC>(std::move(params));
             h.process_client_req(std::move(req), std::move(cb));

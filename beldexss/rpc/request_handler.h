@@ -207,8 +207,8 @@ class RequestHandler {
     void process_client_req(rpc::revoked_subaccounts&& req, std::function<void(Response)> cb);
 
     struct rpc_handler {
-        std::function<client_request(std::variant<nlohmann::json, oxenc::bt_dict_consumer> params)>
-                load_req;
+        std::function<client_request(nlohmann::json&& params)> load_json;
+        std::function<client_request(oxenc::bt_dict_consumer&& params)> load_bt;
         std::function<void(RequestHandler&, nlohmann::json, std::function<void(Response)>)>
                 http_json;
         std::function<void(
