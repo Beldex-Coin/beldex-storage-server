@@ -38,7 +38,7 @@ TEST_CASE("v1 serialization - basic values", "[serialization]") {
 
     const auto messages = deserialize_messages(batches[0]);
     CHECK(messages.size() == 2);
-    for (int i = 0; i < messages.size(); ++i) {
+    for (size_t i = 0; i < messages.size(); ++i) {
         CHECK(messages[i].pubkey == pub_key);
         CHECK(messages[i].data == data);
         CHECK(messages[i].hash == hash);

@@ -1,6 +1,4 @@
 #include <catch2/catch.hpp>
-#include <iostream>
-#include <ostream>
 
 #include <beldexss/crypto/channel_encryption.hpp>
 #include <beldexss/crypto/keys.h>
