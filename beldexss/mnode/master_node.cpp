@@ -649,8 +649,17 @@ void MasterNode::update_swarms() {
             "rpc.get_master_nodes",
             [this](bool success, std::vector<std::string> data) {
                 updating_swarms_ = false;
-                if (!success || data.size() < 2) {
-                    log::critical(logcat, "Failed to contact local beldexd for master node list");
+                if (!success) {
+                    log::critical(logcat, "Failed to contact local beldexd for node list, connection failed");
+                    return;
+                }
+
+                if (data.size() < 2) {
+                    log::critical(
+                            logcat,
+                            "Failed to contact local beldexd for node list. Expected 2 parts, "
+                            "received {}",
+                            data.size());
                     return;
                 }
                 try {
