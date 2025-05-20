@@ -1,6 +1,8 @@
 #pragma once
 
+#include <condition_variable>
 #include <chrono>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -8,10 +10,9 @@
 #include <string>
 #include <string_view>
 
-#include <beldexss/storage/database.hpp>
 #include <beldexss/crypto/keys.h>
-#include <beldexss/server/mqbase.h>
-#include <beldexss/http/http_client.h>
+#include <beldexss/common/message.h>
+#include <beldexss/storage/database.hpp>
 #include "reachability_testing.h"
 #include "stats.h"
 #include "swarm.h"
@@ -19,10 +20,15 @@
 namespace beldexss::server {
 class OMQ;
 class QUIC;
+class MQBase;
 } //namespace beldexss::server
 
 namespace beldexss::rpc {
 struct OnionRequestMetadata;
+}
+
+namespace beldexss::http {
+class Client;
 }
 
 namespace beldexss::mnode {
