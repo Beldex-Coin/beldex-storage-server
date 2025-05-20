@@ -25,8 +25,11 @@ namespace beldexss::rpc {
 
 using namespace std::literals;
 
-// Client rpc endpoints, accessible via the HTTPS storage_rpc endpoint, the OMQ
-// "storage.whatever" endpoints, and as the final target of an onion request.
+// Client rpc endpoints, accessible via the HTTPS storage_rpc endpoint with a body consisting of:
+//
+//   {"method": "<name>", "params": {...}}
+//
+// The OMQ "storage.whatever" endpoints, and as the final target of an onion request.
 
 /// Thrown when parsing parameters when we encounter missing required fields, invalid value
 /// types, etc.  `what()` is designed to be returned to the request initiator.
