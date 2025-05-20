@@ -617,6 +617,50 @@ void MasterNode::on_swarm_update(block_update&& bu) {
     // initiate_peer_test();
 }
 
+static void blocking_request_for_recent_block_hashes(
+        uint64_t height, server::OMQ& omq, std::map<uint64_t, std::string>& height_to_hashes) {
+
+    // Setup synchronisation primitives
+    std::mutex mutex;            // Mutex for blocking until all requests are done
+    std::mutex map_mutex;        // Sync writes to map
+    std::condition_variable cv;  // Sleep until all writes are complete
+    size_t requests = 0;
+    std::atomic<size_t> responses = 0;
+
+    // Incoming tests are *usually* height - TEST_BLOCKS_BUFFER, but request a couple extra as a
+    // buffer.
+    for (uint64_t h = height - TEST_BLOCKS_BUFFER - 2; h < height; h++) {
+        requests++;
+        omq.beldexd_request(
+                "rpc.get_block_hash",
+                [h, requests, &responses, &height_to_hashes, &map_mutex, &cv](
+                        bool success, std::vector<std::string> data) {
+                    bool hash_ok = success && data.size() == 2 && data[0] == "200" &&
+                                   data[1].size() == 66 && data[1].front() == '"' &&
+                                   data[1].back() == '"';
+                    if (hash_ok) {
+                        std::string_view hash{data[1].data() + 1, data[1].size() - 2};
+                        if (oxenc::is_hex(hash)) {
+                            log::debug(logcat, "Pre-loaded hash {} for height {}", hash, h);
+                            auto lock = std::unique_lock(map_mutex);
+                            height_to_hashes.insert_or_assign(h, hash);
+                        }
+                    }
+
+                    if (++responses == requests)  // Wake up on completion
+                        cv.notify_all();
+                },
+                fmt::format("{{\"height\":[{}]}}", h));
+    }
+
+    // Block until all requests are returned
+    auto req_lock = std::unique_lock(mutex);
+    cv.wait(req_lock, [requests, &responses]() {
+        bool result = requests == responses;
+        return result;
+    });
+}
+
 void MasterNode::update_swarms() {
     if (updating_swarms_.exchange(true)) {
         log::debug(logcat, "Swarm update already in progress, not sending another update request");
@@ -676,28 +720,11 @@ void MasterNode::update_swarms() {
 
                         // Request some recent block hash heights so that we can properly carry out
                         // and respond to storage testing (for which we need to know recent block
-                        // hashes). Incoming tests are *usually* height - TEST_BLOCKS_BUFFER, but
-                        // request a couple extra as a buffer.
-                        for (uint64_t h = bu.height - TEST_BLOCKS_BUFFER - 2; h < bu.height; h++)
-                            omq_server_.beldexd_request(
-                                    "rpc.get_block_hash",
-                                    [this, h](bool success, std::vector<std::string> data) {
-                                        if (!(success && data.size() == 2 && data[0] == "200" &&
-                                              data[1].size() == 66 && data[1].front() == '"' &&
-                                              data[1].back() == '"'))
-                                            return;
-                                        std::string_view hash{
-                                                data[1].data() + 1, data[1].size() - 2};
-                                        if (oxenc::is_hex(hash)) {
-                                            log::debug(
-                                                    logcat,
-                                                    "Pre-loaded hash {} for height {}",
-                                                    hash,
-                                                    h);
-                                            block_hashes_cache_.insert_or_assign(h, hash);
-                                        }
-                                    },
-                                    "{\"height\":[" + util::int_to_string(h) + "]}");
+                        // hashes). There's a race condition here with `on_swarm_update` both
+                        // writing to `block_hashes_cache` hence writes to it need to be
+                        // synchronised which we do here by blocking.
+                        blocking_request_for_recent_block_hashes(
+                            bu.height, omq_server_, block_hashes_cache_);
 
                         // If this is our very first response then we *may* want to try falling back
                         // to the bootstrap node *if* our response looks sparse: this will typically
