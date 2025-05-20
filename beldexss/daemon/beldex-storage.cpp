@@ -93,6 +93,20 @@ int main(int argc, char* argv[]) {
     log::info(logcat, "Setting database location to {}", options.data_dir);
     log::info(logcat, "Connecting to beldexd @ {}", options.beldexd_omq_rpc);
 
+    // Validate the OMQ RPC address can be converted, especially since bad address conversions can
+    // throw an exception that might _not_ be caught and propagate up to main, providing zero
+    // context on the whereabouts of the error.
+    try {
+        oxenmq::address{options.beldexd_omq_rpc};
+    } catch (const std::exception& e) {
+        log::error(
+                logcat,
+                "OMQ RPC address '{}' was not a valid for ZMQ communications (e.g. "
+                "tcp://HOSTNAME:PORT or ipc://PATH, lookup OxenMQ addresses for more information)",
+                options.beldexd_omq_rpc);
+        return EXIT_FAILURE;
+    }
+
     if (sodium_init() != 0) {
         log::error(logcat, "Could not initialize libsodium");
         return EXIT_FAILURE;
