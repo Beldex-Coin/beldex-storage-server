@@ -617,48 +617,77 @@ void MasterNode::on_swarm_update(block_update&& bu) {
     // initiate_peer_test();
 }
 
-static void blocking_request_for_recent_block_hashes(
+static void request_for_recent_block_hashes(
         uint64_t height, server::OMQ& omq, std::map<uint64_t, std::string>& height_to_hashes) {
+    uint64_t start_height = height - TEST_BLOCKS_BUFFER - 2;
+    if (start_height > height) // Overflow
+        start_height = 0;
 
-    // Setup synchronisation primitives
-    std::mutex mutex;            // Mutex for blocking until all requests are done
-    std::mutex map_mutex;        // Sync writes to map
-    std::condition_variable cv;  // Sleep until all writes are complete
-    size_t requests = 0;
-    std::atomic<size_t> responses = 0;
+    if (start_height >= height) // Early out if there are no heights to query
+        return;
 
-    // Incoming tests are *usually* height - TEST_BLOCKS_BUFFER, but request a couple extra as a
-    // buffer.
-    for (uint64_t h = height - TEST_BLOCKS_BUFFER - 2; h < height; h++) {
-        requests++;
-        omq.beldexd_request(
-                "rpc.get_block_hash",
-                [h, requests, &responses, &height_to_hashes, &map_mutex, &cv](
-                        bool success, std::vector<std::string> data) {
-                    bool hash_ok = success && data.size() == 2 && data[0] == "200" &&
-                                   data[1].size() == 66 && data[1].front() == '"' &&
-                                   data[1].back() == '"';
-                    if (hash_ok) {
-                        std::string_view hash{data[1].data() + 1, data[1].size() - 2};
-                        if (oxenc::is_hex(hash)) {
-                            log::debug(logcat, "Pre-loaded hash {} for height {}", hash, h);
-                            auto lock = std::unique_lock(map_mutex);
-                            height_to_hashes.insert_or_assign(h, hash);
-                        }
-                    }
-
-                    if (++responses == requests)  // Wake up on completion
-                        cv.notify_all();
-                },
-                fmt::format("{{\"height\":[{}]}}", h));
+    // Construct the OMQ request that batches all the heights to grab
+    fmt::memory_buffer request_buffer;
+    fmt::format_to(std::back_inserter(request_buffer), "{{\"heights\": [");
+    for (uint64_t h = start_height; h < height; h++) {
+        fmt::format_to(
+                std::back_inserter(request_buffer),
+                "{}{}",
+                h,
+                h == (height - 1) ? "]}" : ",");
     }
 
-    // Block until all requests are returned
-    auto req_lock = std::unique_lock(mutex);
-    cv.wait(req_lock, [requests, &responses]() {
-        bool result = requests == responses;
-        return result;
-    });
+    std::string request_cmd = fmt::to_string(request_buffer);
+    log::debug(
+            logcat,
+            "Send requests for recent block height hashes: {}",
+            request_cmd);
+
+    // Execute request
+    omq.beldexd_request(
+            "rpc.get_block_hash",
+            [start_height, height, &height_to_hashes](bool success, std::vector<std::string> data) {
+                if (!success) {
+                    log::error(logcat, "Network failure in retrieving recent block hash heights");
+                    return;
+                }
+
+                // Expected output (note hash has no 0x prefix)
+                // ['200',
+                //  '{"status": "OK",
+                //    "height": <top_chain_height>,
+                //    "<requested_height 0>":  "<hash>"
+                //    "<requested_height 1>":  "<hash>"
+                //    "<requested_height...>": "<hash>"
+                //   }']
+
+                assert(data.size() == 2);
+                assert(data[0] == "200");
+                if (data[0] != "200" || data.size() != 2)
+                    return;
+
+                json parse = json::parse(
+                        data[1], nullptr, /*allow_exceptions*/ false);
+                assert(!parse.is_discarded());
+                if (parse.is_discarded())
+                    return;
+
+                for (uint64_t h = start_height; h < height; h++) {
+                    std::string_view hash = get_or<std::string_view>(parse, "{}"_format(h), "");
+                    assert(!hash.starts_with("0x"));
+                    assert(hash.size() == 64);
+                    assert(oxenc::is_hex(hash));
+                    if (hash.size() == 64 && oxenc::is_hex(hash)) {
+                        log::debug(
+                                logcat,
+                                "Queried hash {} for height {}",
+                                hash,
+                                h);
+                        height_to_hashes.insert_or_assign(h, hash);
+                    }
+                }
+            },
+            request_cmd);
 }
 
 void MasterNode::update_swarms() {
@@ -717,14 +746,21 @@ void MasterNode::update_swarms() {
                             got_first_response_ = true;
                         }
                         first_response_cv_.notify_all();
+                        static_assert(
+                                server::OMQ::NUM_GENERAL_THREADS == 1,
+                                "If the number of threads ever increases from 1, there's a race "
+                                "condition here with `on_swarm_update` both writing to "
+                                "`block_hashes_cache` so writes will need to be synchronised. "
+                                ""
+                                "Since OMQ was integrated in 330581b this has always been set to 1 "
+                                "so all these 'async' OMQ requests that SS sends is actually "
+                                "thread safe even though a typical configuration of OMQ (w/ "
+                                "threads scaling with the number of cores) would trigger races.");
 
-                        // Request some recent block hash heights so that we can properly carry out
-                        // and respond to storage testing (for which we need to know recent block
-                        // hashes). There's a race condition here with `on_swarm_update` both
-                        // writing to `block_hashes_cache` hence writes to it need to be
-                        // synchronised which we do here by blocking.
-                        blocking_request_for_recent_block_hashes(
-                            bu.height, omq_server_, block_hashes_cache_);
+                        // Async request some recent block hash heights so that we can properly carry
+                        // out and respond to storage testing (for which we need to know recent
+                        // block hashes).
+                        request_for_recent_block_hashes(bu.height, omq_server_, block_hashes_cache_);
 
                         // If this is our very first response then we *may* want to try falling back
                         // to the bootstrap node *if* our response looks sparse: this will typically

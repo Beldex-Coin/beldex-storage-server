@@ -184,6 +184,8 @@ class OMQ : public MQBase {
     void connect_beldexd(const oxenmq::address& beldexd_rpc);
 
   public:
+    constexpr static int NUM_GENERAL_THREADS = 1;
+    
     OMQ(const mnode::mn_record& me,
         const crypto::x25519_seckey& privkey,
         const std::vector<crypto::x25519_pubkey>& stats_access_keys_hex);

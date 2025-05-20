@@ -299,7 +299,13 @@ OMQ::OMQ(
         });
 
     // clang-format on
-    omq_.set_general_threads(1);
+    static_assert(
+            NUM_GENERAL_THREADS == 1,
+            "Changing this must be done with extreme caution, if ever as the entire codebase has "
+            "been operating on the assumption that concurrent dispatched OMQ requests are thread "
+            "safe (e.g. it assumes there's only 1 thread writing to shared data structures across "
+            "concurrent requests). Git blame me for one example of this");
+    omq_.set_general_threads(NUM_GENERAL_THREADS);
 
     omq_.MAX_MSG_SIZE =
             10 * 1024 * 1024;  // 10 MB (needed by the fileserver, and swarm msg serialization)
