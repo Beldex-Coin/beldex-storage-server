@@ -55,9 +55,6 @@ class OMQ : public MQBase {
     // mn.ping - sent by MNs to ping each other.
     void handle_ping(oxenmq::Message& message);
 
-    // mn.storage_test
-    void handle_storage_test(oxenmq::Message& message);
-
     /// storage.(whatever) -- client request handling.  These reply with [BODY] on success or
     /// [CODE, BODY] on failure (where BODY typically is some sort of error message).
     ///
@@ -184,8 +181,6 @@ class OMQ : public MQBase {
     void connect_beldexd(const oxenmq::address& beldexd_rpc);
 
   public:
-    constexpr static int NUM_GENERAL_THREADS = 1;
-    
     OMQ(const mnode::mn_record& me,
         const crypto::x25519_seckey& privkey,
         const std::vector<crypto::x25519_pubkey>& stats_access_keys_hex);

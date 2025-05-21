@@ -73,93 +73,6 @@ void OMQ::handle_ping(oxenmq::Message& message) {
     message.send_reply("pong");
 }
 
-void OMQ::handle_storage_test(oxenmq::Message& message) {
-    if (message.conn.pubkey().size() != 32) {
-        // This shouldn't happen as this endpoint should have remote-MN-only permissions, so be
-        // noisy
-        log::error(
-                logcat,
-                "bug: invalid mn.storage_test omq request from {} with no pubkey",
-                message.remote);
-        return message.send_reply("invalid parameters");
-    } else if (message.data.size() < 2) {
-        log::warning(
-                logcat,
-                "invalid mn.storage_test omq request from {}: not enough data parts; expected 2, "
-                "received {}",
-                message.remote,
-                message.data.size());
-        return message.send_reply("invalid parameters");
-    }
-    crypto::legacy_pubkey tester_pk;
-    if (auto node = master_node_->find_node(
-                crypto::x25519_pubkey::from_bytes(message.conn.pubkey()))) {
-        tester_pk = node->pubkey_legacy;
-        log::debug(
-                logcat, "incoming mn.storage_test request from {}@{}", tester_pk, message.remote);
-    } else {
-        log::warning(logcat, "invalid mn.storage_test omq request : sender is not an active MN");
-        return message.send_reply("invalid pubkey");
-    }
-
-    uint64_t height;
-    if (!util::parse_int(message.data[0], height) || !height) {
-        log::warning(
-                logcat,
-                "invalid mn.storage_test omq request from {}@{}: '{}' is not a valid height",
-                tester_pk,
-                message.remote,
-                height);
-        return message.send_reply("invalid height");
-    }
-    std::string msg_hash;
-    if (message.data[1].size() == 64)
-        msg_hash = oxenc::to_hex(message.data[1]);
-    else if (message.data[1].size() == 32) {
-        msg_hash = oxenc::to_base64(message.data[1]);
-        assert(msg_hash.back() == '=');
-        msg_hash.pop_back();
-    } else {
-        log::warning(
-                logcat,
-                "invalid mn.storage_test omq request from {}@{}: message hash is {} bytes, "
-                "expected 64 or 32",
-                tester_pk,
-                message.remote,
-                message.data[1].size());
-        return message.send_reply("invalid msg hash");
-    }
-
-    request_handler_->process_storage_test_req(
-            height,
-            tester_pk,
-            msg_hash,
-            [reply = message.send_later()](
-                    mnode::MessageTestStatus status,
-                    std::string answer,
-                    std::chrono::steady_clock::duration elapsed) {
-                switch (status) {
-                    case mnode::MessageTestStatus::SUCCESS:
-                        log::debug(
-                                logcat,
-                                "Storage test success after {}",
-                                util::friendly_duration(elapsed));
-                        reply.reply("OK", answer);
-                        return;
-                    case mnode::MessageTestStatus::WRONG_REQ: reply.reply("wrong request"); return;
-                    case mnode::MessageTestStatus::RETRY:
-                        [[fallthrough]];  // If we're getting called then a retry ran out of time
-                    case mnode::MessageTestStatus::ERROR:
-                        // Promote this to `error` once we enforce storage testing
-                        log::debug(
-                                logcat,
-                                "Failed storage test, tried for {}",
-                                util::friendly_duration(elapsed));
-                        reply.reply("other");
-                }
-            });
-}
-
 void OMQ::handle_onion_request(
         std::string_view payload,
         rpc::OnionRequestMetadata&& data,
@@ -264,7 +177,6 @@ OMQ::OMQ(
     omq_.add_category("mn", oxenmq::Access{oxenmq::AuthLevel::none, true, false}, 2 /*reserved threads*/, 1000 /*max queue*/)
         .add_request_command("data", [this](auto& m) { handle_mn_data(m); })
         .add_request_command("ping", [this](auto& m) { handle_ping(m); })
-        .add_request_command("storage_test", [this](auto& m) { handle_storage_test(m); }) // NB: requires a 60s request timeout
         .add_request_command("onion_request", [this](auto& m) { handle_onion_request(m); })
         .add_request_command("storage_cc", [this](auto& m) {
             if (m.data.size() >= 2) return handle_client_request(m.data[0], m, true);
@@ -299,13 +211,7 @@ OMQ::OMQ(
         });
 
     // clang-format on
-    static_assert(
-            NUM_GENERAL_THREADS == 1,
-            "Changing this must be done with extreme caution, if ever as the entire codebase has "
-            "been operating on the assumption that concurrent dispatched OMQ requests are thread "
-            "safe (e.g. it assumes there's only 1 thread writing to shared data structures across "
-            "concurrent requests). Git blame me for one example of this");
-    omq_.set_general_threads(NUM_GENERAL_THREADS);
+    omq_.set_general_threads(1);
 
     omq_.MAX_MSG_SIZE =
             10 * 1024 * 1024;  // 10 MB (needed by the fileserver, and swarm msg serialization)

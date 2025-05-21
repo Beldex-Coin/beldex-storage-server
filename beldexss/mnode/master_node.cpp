@@ -573,12 +573,6 @@ void MasterNode::on_swarm_update(block_update&& bu) {
 
         block_height_ = bu.height;
         block_hash_ = bu.block_hash;
-
-        while (block_hashes_cache_.size() >= BLOCK_HASH_CACHE_SIZE)
-            block_hashes_cache_.erase(block_hashes_cache_.begin());
-
-        block_hashes_cache_.insert_or_assign(
-                block_hashes_cache_.end(), bu.height, std::move(bu.block_hash));
     } else {
         log::trace(logcat, "already seen this block");
         return;
@@ -628,83 +622,6 @@ void MasterNode::on_swarm_update(block_update&& bu) {
         /// Go through all our PK and push them accordingly
         bootstrap_swarms();
     }
-
-    // Peer testing has never worked reliably (there are lots of race conditions around when blocks
-    // change) and isn't enforce on the network, so just disable initiating testing for now:
-    // initiate_peer_test();
-}
-
-static void request_for_recent_block_hashes(
-        uint64_t height, server::OMQ& omq, std::map<uint64_t, std::string>& height_to_hashes) {
-    uint64_t start_height = height - TEST_BLOCKS_BUFFER - 2;
-    if (start_height > height) // Overflow
-        start_height = 0;
-
-    if (start_height >= height) // Early out if there are no heights to query
-        return;
-
-    // Construct the OMQ request that batches all the heights to grab
-    fmt::memory_buffer request_buffer;
-    fmt::format_to(std::back_inserter(request_buffer), "{{\"heights\": [");
-    for (uint64_t h = start_height; h < height; h++) {
-        fmt::format_to(
-                std::back_inserter(request_buffer),
-                "{}{}",
-                h,
-                h == (height - 1) ? "]}" : ",");
-    }
-
-    std::string request_cmd = fmt::to_string(request_buffer);
-    log::debug(
-            logcat,
-            "Send requests for recent block height hashes: {}",
-            request_cmd);
-
-    // Execute request
-    omq.beldexd_request(
-            "rpc.get_block_hash",
-            [start_height, height, &height_to_hashes](bool success, std::vector<std::string> data) {
-                if (!success) {
-                    log::error(logcat, "Network failure in retrieving recent block hash heights");
-                    return;
-                }
-
-                // Expected output (note hash has no 0x prefix)
-                // ['200',
-                //  '{"status": "OK",
-                //    "height": <top_chain_height>,
-                //    "<requested_height 0>":  "<hash>"
-                //    "<requested_height 1>":  "<hash>"
-                //    "<requested_height...>": "<hash>"
-                //   }']
-
-                assert(data.size() == 2);
-                assert(data[0] == "200");
-                if (data[0] != "200" || data.size() != 2)
-                    return;
-
-                json parse = json::parse(
-                        data[1], nullptr, /*allow_exceptions*/ false);
-                assert(!parse.is_discarded());
-                if (parse.is_discarded())
-                    return;
-
-                for (uint64_t h = start_height; h < height; h++) {
-                    std::string_view hash = get_or<std::string_view>(parse, "{}"_format(h), "");
-                    assert(!hash.starts_with("0x"));
-                    assert(hash.size() == 64);
-                    assert(oxenc::is_hex(hash));
-                    if (hash.size() == 64 && oxenc::is_hex(hash)) {
-                        log::debug(
-                                logcat,
-                                "Queried hash {} for height {}",
-                                hash,
-                                h);
-                        height_to_hashes.insert_or_assign(h, hash);
-                    }
-                }
-            },
-            request_cmd);
 }
 
 void MasterNode::update_swarms(std::promise<bool> *on_finish) {
@@ -761,22 +678,6 @@ void MasterNode::update_swarms(std::promise<bool> *on_finish) {
                     block_update bu = parse_swarm_update(data[1]);
                     if (!got_first_response_.exchange(true)) {
                         log::info(logcat, "Got initial swarm information from local Beldexd");
-                        static_assert(
-                                server::OMQ::NUM_GENERAL_THREADS == 1,
-                                "If the number of threads ever increases from 1, there's a race "
-                                "condition here with `on_swarm_update` both writing to "
-                                "`block_hashes_cache` so writes will need to be synchronised. "
-                                ""
-                                "Since OMQ was integrated in 330581b this has always been set to 1 "
-                                "so all these 'async' OMQ requests that SS sends is actually "
-                                "thread safe even though a typical configuration of OMQ (w/ "
-                                "threads scaling with the number of cores) would trigger races.");
-
-                        // Async request some recent block hash heights so that we can properly carry
-                        // out and respond to storage testing (for which we need to know recent
-                        // block hashes).
-                        request_for_recent_block_hashes(bu.height, omq_server_, block_hashes_cache_);
-
                         // If this is our very first response then we *may* want to try falling back
                         // to the bootstrap node *if* our response looks sparse: this will typically
                         // happen for a fresh master node because IP/port distribution through the
@@ -1005,78 +906,6 @@ void MasterNode::beldexd_ping() {
     });
 }
 
-void MasterNode::process_storage_test_response(
-        const mn_record& testee,
-        const message& msg,
-        uint64_t test_height,
-        std::string status,
-        std::string answer) {
-    ResultType result = ResultType::OTHER;
-
-    if (status.empty()) {
-        // TODO: retry here, otherwise tests sometimes fail (when MN not
-        // running yet)
-        log::debug(
-                logcat, "Failed to send a storage test request to mnode: {}", testee.pubkey_legacy);
-    } else if (status == "OK") {
-        if (answer == msg.data) {
-            log::debug(
-                    logcat,
-                    "Storage test is successful for: {} at height: {}",
-                    testee.pubkey_legacy,
-                    test_height);
-            result = ResultType::OK;
-        } else {
-            log::debug(
-                    logcat,
-                    "Test answer doesn't match for: {} at height {}",
-                    testee.pubkey_legacy,
-                    test_height);
-            result = ResultType::MISMATCH;
-        }
-    } else if (status == "wrong request") {
-        log::debug(logcat, "Storage test rejected by testee");
-        result = ResultType::REJECTED;
-    } else {
-        log::debug(logcat, "Storage test failed for some other reason: {}", status);
-    }
-
-    all_stats_.record_storage_test_result(testee.pubkey_legacy, result);
-}
-
-void MasterNode::send_storage_test_req(
-        const mn_record& testee, uint64_t test_height, const message& msg) {
-    bool is_b64 = oxenc::is_base64(msg.hash);
-    if (!is_b64) {
-        log::error(
-                logcat,
-                "Unable to initiate storage test: retrieved msg hash is not expected "
-                "BLAKE2b+base64");
-        return;
-    }
-
-    omq_server_->request(
-            testee.pubkey_x25519.view(),
-            "mn.storage_test",
-            [this, testee, msg, height = test_height](bool success, auto data) {
-                if (!success || data.size() != 2) {
-                    log::debug(
-                            logcat,
-                            "Storage test request failed: {}",
-                            !success ? "request timed out"
-                                     : "wrong number of elements in response");
-                }
-                if (data.size() < 2)
-                    data.resize(2);
-                process_storage_test_response(
-                        testee, msg, height, std::move(data[0]), std::move(data[1]));
-            },
-            oxenmq::send_option::request_timeout{STORAGE_TEST_TIMEOUT},
-            // Data parts: test height and msg hash (in bytes)
-            std::to_string(block_height_),
-            oxenc::from_base64(msg.hash));
-}
-
 void MasterNode::report_reachability(const mn_record& mn, bool reachable, int previous_failures) {
     auto cb = [mn_pk = mn.pubkey_legacy, reachable](bool success, std::vector<std::string> data) {
         if (!success) {
@@ -1119,147 +948,6 @@ void MasterNode::report_reachability(const mn_record& mn, bool reachable, int pr
             reach_records_.add_failing_node(mn.pubkey_legacy, previous_failures);
         else
             reach_records_.remove_node_from_failing(mn.pubkey_legacy);
-    }
-}
-
-// Deterministically selects two random swarm members; returns the pair on success, nullopt on
-// failure.
-std::optional<std::pair<mn_record, mn_record>> MasterNode::derive_tester_testee(
-        uint64_t blk_height) {
-    std::lock_guard guard(mn_mutex_);
-
-    std::vector<mn_record> members = swarm_->other_nodes();
-    members.push_back(our_address_);
-
-    if (members.size() < 2) {
-        log::trace(logcat, "Could not initiate peer test: swarm too small");
-        return std::nullopt;
-    }
-
-    std::sort(members.begin(), members.end(), [](const auto& a, const auto& b) {
-        return a.pubkey_legacy < b.pubkey_legacy;
-    });
-
-    std::string block_hash;
-    if (blk_height == block_height_) {
-        block_hash = block_hash_;
-    } else if (blk_height < block_height_) {
-        log::trace(
-                logcat,
-                "got storage test request for an older block: {}/{}",
-                blk_height,
-                block_height_);
-
-        if (auto it = block_hashes_cache_.find(blk_height); it != block_hashes_cache_.end()) {
-            block_hash = it->second;
-        } else {
-            log::debug(logcat, "Could not find hash for a given block height");
-            return std::nullopt;
-        }
-    } else {
-        log::debug(logcat, "Could not find hash: block height is in the future");
-        return std::nullopt;
-    }
-
-    if (block_hash.size() < sizeof(uint64_t)) {
-        log::error(logcat, "Could not initiate peer test: invalid block hash");
-        return std::nullopt;
-    }
-
-    std::mt19937_64 mt{oxenc::load_little_to_host<uint64_t>(block_hash.data())};
-    const auto tester_idx = util::uniform_distribution_portable(mt, members.size());
-
-    uint64_t testee_idx;
-    do {
-        testee_idx = util::uniform_distribution_portable(mt, members.size());
-    } while (testee_idx == tester_idx);
-
-    return std::make_pair(std::move(members[tester_idx]), std::move(members[testee_idx]));
-}
-
-std::pair<MessageTestStatus, std::string> MasterNode::process_storage_test_req(
-        uint64_t blk_height,
-        const crypto::legacy_pubkey& tester_pk,
-        const std::string& msg_hash_hex) {
-    std::lock_guard guard(mn_mutex_);
-
-    // 1. Check height, retry if we are behind
-    std::string block_hash;
-
-    if (blk_height > block_height_) {
-        log::debug(
-                logcat,
-                "Our blockchain is behind, height: {}, requested: {}",
-                block_height_,
-                blk_height);
-        return {MessageTestStatus::RETRY, ""};
-    }
-
-    // 2. Check tester/testee pair
-    {
-        auto tester_testee = derive_tester_testee(blk_height);
-        if (!tester_testee) {
-            log::error(logcat, "We have no mnodes to derive tester/testee from");
-            return {MessageTestStatus::WRONG_REQ, ""};
-        }
-        auto [tester, testee] = *std::move(tester_testee);
-
-        if (testee != our_address_) {
-            log::error(logcat, "We are NOT the testee for height: {}", blk_height);
-            return {MessageTestStatus::WRONG_REQ, ""};
-        }
-
-        if (tester.pubkey_legacy != tester_pk) {
-            log::debug(logcat, "Wrong tester: {}, expected: {}", tester_pk, tester.pubkey_legacy);
-            return {MessageTestStatus::WRONG_REQ, ""};
-        } else {
-            log::trace(logcat, "Tester is valid: {}", tester_pk);
-        }
-    }
-
-    // 3. If for a current/past block, try to respond right away
-    auto msg = db_->retrieve_by_hash(msg_hash_hex);
-    if (!msg)
-        return {MessageTestStatus::RETRY, ""};
-
-    return {MessageTestStatus::SUCCESS, std::move(msg->data)};
-}
-
-void MasterNode::initiate_peer_test() {
-    std::lock_guard guard(mn_mutex_);
-
-    // 1. Select the tester/testee pair
-
-    if (block_height_ < TEST_BLOCKS_BUFFER) {
-        log::debug(logcat, "Height {} is too small, skipping all tests", block_height_);
-        return;
-    }
-
-    const uint64_t test_height = block_height_ - TEST_BLOCKS_BUFFER;
-
-    auto tester_testee = derive_tester_testee(test_height);
-    if (!tester_testee)
-        return;
-    auto [tester, testee] = *std::move(tester_testee);
-
-    log::trace(
-            logcat,
-            "For height {}; tester: {} testee: {}",
-            test_height,
-            tester.pubkey_legacy,
-            testee.pubkey_legacy);
-
-    if (tester != our_address_) {
-        /// Not our turn to initiate a test
-        return;
-    }
-
-    /// 2. Storage Testing: initiate a testing request with a randomly selected message
-    if (auto msg = db_->retrieve_random()) {
-        log::trace(logcat, "Selected random message: {}, {}", msg->hash, msg->data);
-        send_storage_test_req(testee, test_height, *msg);
-    } else {
-        log::debug(logcat, "Could not select a message for testing");
     }
 }
 
@@ -1338,7 +1026,6 @@ static nlohmann::json to_json(const all_stats& stats) {
 
         p["requests_failed"] = stats.requests_failed;
         p["pushes_failed"] = stats.requests_failed;
-        p["storage_tests"] = stats.storage_tests;
     }
 
     auto [window, recent] = stats.get_recent_requests();

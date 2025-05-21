@@ -38,9 +38,6 @@ inline constexpr size_t BLOCK_HASH_CACHE_SIZE = 30;
 // How long we wait for a HTTPS or OMQ ping response from another MN when ping testing
 inline constexpr auto MN_PING_TIMEOUT = 5s;
 
-// How long we wait for a storage test response (HTTPS until HF19, then OMQ)
-inline constexpr auto STORAGE_TEST_TIMEOUT = 15s;
-
 // Timeout for bootstrap node OMQ requests
 inline constexpr auto BOOTSTRAP_TIMEOUT = 10s;
 
@@ -110,9 +107,6 @@ class MasterNode {
     const mn_record our_address_;
     const crypto::legacy_seckey our_seckey_;
 
-    /// Cache for block_height/block_hash mapping
-    std::map<uint64_t, std::string> block_hashes_cache_;
-
     server::OMQ& omq_server_;
     std::vector<server::MQBase*> mq_servers_;
 
@@ -162,19 +156,6 @@ class MasterNode {
 
     /// Pings beldexd (as required for uptime proofs)
     void beldexd_ping();
-
-    /// Return tester/testee pair based on block_height
-    std::optional<std::pair<mn_record, mn_record>> derive_tester_testee(uint64_t block_height);
-
-    /// Send a request to a MN under test
-    void send_storage_test_req(const mn_record& testee, uint64_t test_height, const message& msg);
-
-    void process_storage_test_response(
-            const mn_record& testee,
-            const message& msg,
-            uint64_t test_height,
-            std::string status,
-            std::string answer);
 
     /// Check if it is our turn to test and initiate peer test if so
     void initiate_peer_test();
@@ -260,12 +241,6 @@ class MasterNode {
 
     /// Process incoming blob of messages: add to DB if new
     void process_push_batch(const std::string& blob);
-
-    // Attempt to find an answer (message body) to the storage test
-    std::pair<MessageTestStatus, std::string> process_storage_test_req(
-            uint64_t blk_height,
-            const crypto::legacy_pubkey& tester_addr,
-            const std::string& msg_hash_hex);
 
     bool is_pubkey_for_us(const user_pubkey& pk) const;
 

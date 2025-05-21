@@ -1621,56 +1621,6 @@ Response RequestHandler::process_retrieve_all() {
     return {http::OK, json{{"messages", std::move(messages)}}};
 }
 
-void RequestHandler::process_storage_test_req(
-        uint64_t height,
-        crypto::legacy_pubkey tester,
-        std::string msg_hash_hex,
-        std::function<void(mnode::MessageTestStatus, std::string, steady_clock::duration)>
-                callback) {
-    /// TODO: we never actually test that `height` is within any reasonable
-    /// time window (or that it is not repeated multiple times), we should do
-    /// that! This is done implicitly to some degree using
-    /// `block_hashes_cache_`, which holds a limited number of recent blocks
-    /// only and fails if an earlier block is requested
-
-    auto started = steady_clock::now();
-    auto [status, answer] = master_node_.process_storage_test_req(height, tester, msg_hash_hex);
-
-    if (status == mnode::MessageTestStatus::RETRY) {
-        // Our first attempt returned a RETRY, so set up a timer to keep retrying
-
-        auto timer = std::make_shared<oxenmq::TimerID>();
-        auto& timer_ref = *timer;
-        master_node_.omq_server()->add_timer(
-                timer_ref,
-                [this,
-                 timer = std::move(timer),
-                 height,
-                 tester,
-                 hash = std::move(msg_hash_hex),
-                 started,
-                 callback = std::move(callback)] {
-                    auto elapsed = steady_clock::now() - started;
-
-                    log::trace(
-                            logcat,
-                            "Performing storage test retry, {} since started",
-                            util::friendly_duration(elapsed));
-
-                    auto [status, answer] =
-                            master_node_.process_storage_test_req(height, tester, hash);
-                    if (status == mnode::MessageTestStatus::RETRY && elapsed < TEST_RETRY_PERIOD &&
-                        !master_node_.shutting_down())
-                        return;  // Still retrying so wait for the next call
-                    master_node_.omq_server()->cancel_timer(*timer);
-                    callback(status, std::move(answer), elapsed);
-                },
-                TEST_RETRY_INTERVAL);
-    } else {
-        callback(status, std::move(answer), steady_clock::now() - started);
-    }
-}
-
 Response RequestHandler::wrap_proxy_response(
         Response res,
         const crypto::x25519_pubkey& client_key,
