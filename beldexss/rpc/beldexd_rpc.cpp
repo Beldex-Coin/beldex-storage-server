@@ -52,10 +52,8 @@ beldexd_seckeys get_mn_privkeys(
                                                 (data.empty() ? "no data received" : data[0])};
                                     }
                                     auto r = nlohmann::json::parse(data[1]);
-                                    auto pk_it = r.find("master_node_privkey");
-                                    const std::string& pk =
-                                            pk_it == r.end() ? "" : pk_it->get_ref<std::string&>();
-
+                                    auto pk =
+                                            r.value<std::string_view>("master_node_privkey", ""sv);
                                     if (pk.empty())
                                         throw std::runtime_error{
                                                 "main master node private key is empty (perhaps "
@@ -64,10 +62,10 @@ beldexd_seckeys get_mn_privkeys(
                                             crypto::legacy_seckey::from_hex(pk),
                                             crypto::ed25519_seckey::from_hex(
                                                     r.at("master_node_ed25519_privkey")
-                                                            .get<std::string>()),
+                                                            .get<std::string_view>()),
                                             crypto::x25519_seckey::from_hex(
                                                     r.at("master_node_x25519_privkey")
-                                                            .get<std::string>())});
+                                                            .get<std::string_view>())});
                                 } catch (...) {
                                     prom.set_exception(std::current_exception());
                                 }
