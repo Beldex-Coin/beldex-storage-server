@@ -85,31 +85,25 @@ void MasterNode::on_beldexd_connected() {
     assert(!updating_swarms_.load());
     auto started = std::chrono::steady_clock::now();
 
-do_initial_update:
-    std::promise<bool> update_swarms_promise;
-    std::future<bool> update_swarms_result = update_swarms_promise.get_future();
-    update_swarms(&update_swarms_promise);
-    for (;;) {
-        std::future_status status = update_swarms_result.wait_for(5s);
-        if (status != std::future_status::ready) {
+    bool success;
+    do {
+        std::promise<bool> update_swarms_promise;
+        std::future<bool> update_swarms_result = update_swarms_promise.get_future();
+        update_swarms(&update_swarms_promise);
+
+        while (update_swarms_result.wait_for(5s) != std::future_status::ready)
             log::warning(logcat, "Still waiting for initial block update from beldexd...");
-            continue;
-        }
+        success = update_swarms_result.get();
+    } while (!success);
 
-        bool result = update_swarms_result.get();
-        if (!result)
-            goto do_initial_update;
-
-        log::info(
-                logcat,
-                "Got initial block update from beldexd in {} (height {}/{} HF {}.{})",
-                util::short_duration(std::chrono::steady_clock::now() - started),
-                block_height_,
-                block_hash_,
-                hardfork_.first,
-                hardfork_.second);
-        break;
-    }
+    log::info(
+            logcat,
+            "Got initial block update from beldexd in {} (height {}/{} HF {}.{})",
+            util::short_duration(std::chrono::steady_clock::now() - started),
+            block_height_,
+            block_hash_,
+            hardfork_.first,
+            hardfork_.second);
 
     beldexd_ping();
     omq_server_->add_timer([this] { beldexd_ping(); }, BELDEXD_PING_INTERVAL);
