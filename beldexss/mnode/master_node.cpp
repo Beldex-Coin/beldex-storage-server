@@ -624,7 +624,7 @@ void MasterNode::on_swarm_update(block_update&& bu) {
     }
 }
 
-void MasterNode::update_swarms(std::promise<bool> *on_finish) {
+void MasterNode::update_swarms(std::promise<bool>* on_finish) {
     if (updating_swarms_.exchange(true)) {
         log::debug(logcat, "Swarm update already in progress, not sending another update request");
         return;
@@ -657,8 +657,10 @@ void MasterNode::update_swarms(std::promise<bool> *on_finish) {
             [this, on_finish](bool success, std::vector<std::string> data) {
                 updating_swarms_ = false;
                 if (!success) {
-                    log::critical(logcat, "Failed to contact local beldexd for node list, connection failed");
-                    if (on_finish)
+                    log::critical(
+                        logcat,
+                        "Failed to contact local beldexd for node list, connection failed");
+                if (on_finish)
                         on_finish->set_value(false);
                     return;
                 }
@@ -721,7 +723,6 @@ void MasterNode::update_swarms(std::promise<bool> *on_finish) {
                 
                 if (on_finish)
                     on_finish->set_value(true);
-
             },
             params.dump());
 }

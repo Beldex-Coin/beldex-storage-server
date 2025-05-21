@@ -53,7 +53,8 @@ beldexd_seckeys get_mn_privkeys(
                                     }
                                     auto r = nlohmann::json::parse(data[1]);
                                     auto pk_it = r.find("master_node_privkey");
-                                    const std::string& pk = pk_it == r.end() ? "" : pk_it->get_ref<std::string&>();
+                                    const std::string& pk =
+                                            pk_it == r.end() ? "" : pk_it->get_ref<std::string&>();
 
                                     if (pk.empty())
                                         throw std::runtime_error{
