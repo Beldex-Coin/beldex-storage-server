@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     if (auto* code = std::get_if<int>(&parsed))
         return *code;
 
-    auto& options = var::get<cli::command_line_options>(parsed);
+    auto& options = std::get<cli::command_line_options>(parsed);
 
     if (!fs::exists(options.data_dir))
         fs::create_directories(options.data_dir);

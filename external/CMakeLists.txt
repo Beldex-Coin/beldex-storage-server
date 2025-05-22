@@ -60,7 +60,7 @@ macro(system_or_submodule BIGNAME smallname pkgconf subdir)
   endif()
 endmacro()
 
-system_or_submodule(OXENC oxenc liboxenc>=1.0.10 oxenc)
+system_or_submodule(OXENC oxenc liboxenc>=1.4.0 oxenc)
 
 set(LIBQUIC_BUILD_TESTS OFF CACHE BOOL "")
 system_or_submodule(OXENQUIC quic liboxenquic>=1.0.0 oxen-libquic)

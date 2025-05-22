@@ -982,7 +982,7 @@ void beldexd_request::load_from(bt_dict_consumer params) {
 }
 
 static client_subrequest as_subrequest(client_request&& req) {
-    return var::visit(
+    return std::visit(
             [](auto&& r) -> client_subrequest {
                 using T = std::decay_t<decltype(r)>;
                 if constexpr (type_list_contains<T, client_rpc_subrequests>)

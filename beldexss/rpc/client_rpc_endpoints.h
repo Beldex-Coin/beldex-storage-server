@@ -440,7 +440,7 @@ constexpr bool is_default(const namespace_var& ns) {
 // - "all" if given as all namespaces
 // - "NN" for some explicitly given non-default numeric namespace NN
 inline std::string signature_value(const namespace_var& ns) {
-    return is_default(ns) ? ""s : is_all(ns) ? "all"s : to_string(var::get<namespace_id>(ns));
+    return is_default(ns) ? ""s : is_all(ns) ? "all"s : to_string(std::get<namespace_id>(ns));
 }
 
 /// Deletes all messages owned by the given pubkey on this MN and broadcasts the delete request
