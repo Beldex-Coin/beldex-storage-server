@@ -6,6 +6,8 @@
 #include "omq.h"
 #include "utils.h"
 
+#include <oxen/quic/gnutls_crypto.hpp>
+
 namespace beldexss::server {
 
 static auto logcat = log::Cat("ssquic");
@@ -46,7 +48,7 @@ QUIC::QUIC(
     request_handler_ = &rh;
     rate_limiter_ = &rl;
 
-    tls_creds->enable_inbound_0rtt();
+    static_cast<quic::GNUTLSCreds*>(tls_creds.get())->enable_inbound_0rtt();
 
     ep = network.endpoint(local, make_endpoint_static_secret(sk), quic::opt::alpns{ALPN});
 
@@ -60,7 +62,7 @@ QUIC::QUIC(
 }
 
 void QUIC::startup_endpoint() {
-    ep->listen(tls_creds, [&](quic::connection_interface& c) {
+    ep->listen(tls_creds, [&](quic::Connection& c) {
         c.queue_incoming_stream<quic::BTRequestStream>(command_handler);
     });
 }
@@ -83,7 +85,7 @@ void QUIC::handle_ping(std::shared_ptr<quic::message> msg) {
 
 void QUIC::handle_request(std::shared_ptr<quic::message> msg) {
     auto& omq = *master_node_->omq_server();
-    auto remote_host = msg->stream()->remote().host();
+    auto remote_host = msg->stream()->get_conn()->remote().host();
 
     auto name = msg->endpoint();
     if (!(name == "mnode_ping" || name == "monitor" || name == "onion_req" ||

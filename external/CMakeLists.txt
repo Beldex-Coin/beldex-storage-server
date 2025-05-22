@@ -70,6 +70,23 @@ set(JSON_MultipleHeaders ON CACHE BOOL "") # Allows multi-header nlohmann use
 system_or_submodule(NLOHMANN nlohmann_json nlohmann_json>=3.7.0 nlohmann_json)
 system_or_submodule(CLI11 CLI11 CLI11>=2.2.0 CLI11)
 
+# libevent
+if(NOT TARGET libevent::core)
+    add_library(libevent_core INTERFACE)
+    pkg_check_modules(LIBEVENT_core libevent_core>=2.1 IMPORTED_TARGET REQUIRED)
+    target_link_libraries(libevent_core INTERFACE PkgConfig::LIBEVENT_core)
+    add_library(libevent::core ALIAS libevent_core)
+
+    add_library(libevent_threads INTERFACE)
+    if(NOT WIN32)
+        pkg_check_modules(LIBEVENT_pthreads libevent_pthreads>=2.1 IMPORTED_TARGET REQUIRED)
+        target_link_libraries(libevent_threads INTERFACE PkgConfig::LIBEVENT_pthreads)
+    endif()
+    add_library(libevent::threads ALIAS libevent_threads)
+else()
+    # If this already exists it is probably via the one oxen-libquic provides when used as a submodule
+    message(STATUS "Using pre-existing libevent::core target for libevent")
+endif()
 
 if (STATIC OR FORCE_SPDLOG_SUBMODULE OR FORCE_FMT_SUBMODULE)
     set(BELDEX_LOGGING_FORCE_SUBMODULES ON CACHE INTERNAL "")

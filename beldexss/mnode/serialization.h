@@ -18,7 +18,7 @@ std::vector<std::string> serialize_messages(
 template <typename It>
 std::vector<std::string> serialize_messages(It begin, It end, uint8_t version) {
     return serialize_messages(
-            [&begin, &end]() mutable -> const message* {
+            [&begin, &end]() -> const message* {
                 return begin == end ? nullptr : &*begin++;
             },
             version);
