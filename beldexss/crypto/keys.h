@@ -43,14 +43,7 @@ struct alignas(size_t) key_base : std::array<unsigned char, KeyLength> {
     void load_from_hex(std::string_view hex) {
         detail::load_from_hex(this->data(), this->size(), hex);
     }
-    // Same as above, but returns nullopt if invalid instead of throwing
-    [[nodiscard]] static std::optional<Derived> maybe_from_hex(std::string_view hex) {
-        try {
-            return from_hex(hex);
-        } catch (...) {
-        }
-        return std::nullopt;
-    }
+
     // Loads the key from a byte string; throws if the wrong size.
     [[nodiscard]] static Derived from_bytes(std::string_view bytes) {
         Derived d;

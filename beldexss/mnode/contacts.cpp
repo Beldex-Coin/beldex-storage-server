@@ -31,7 +31,8 @@ bool Contacts::_update(
             changed = true;
         }
         if (c.pubkey_ed25519 && curr.pubkey_ed25519 != c.pubkey_ed25519) {
-            ed_pk.erase(curr.pubkey_ed25519);
+            if (curr.pubkey_ed25519)
+                ed_pk.erase(curr.pubkey_ed25519);
             curr.pubkey_ed25519 = c.pubkey_ed25519;
             ed_pk[c.pubkey_ed25519] = pk;
             changed = true;

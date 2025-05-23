@@ -386,26 +386,6 @@ void MasterNode::send_onion_to_mn(
             omq_server_.encode_onion_data(payload, data));
 }
 
-void MasterNode::relay_data_reliable(
-        const std::string& blob, const crypto::legacy_pubkey& mn, const contact& ct) const {
-    if (!ct) {
-        // The caller shouldn't be calling this with an uncontactable node!
-        log::error(logcat, "Cannot relay to uncontactable mnode {}", mn);
-        return;
-    }
-
-    log::debug(logcat, "Relaying data to: {} (x25519 pubkey {})", mn, ct.pubkey_x25519);
-
-    omq_server_->request(
-            ct.pubkey_x25519.view(),
-            "mn.data",
-            [](bool success, auto&& /*data*/) {
-                if (!success)
-                    log::error(logcat, "Failed to relay batch data: timeout");
-            },
-            blob);
-}
-
 void MasterNode::record_proxy_request() {
     all_stats_.bump_proxy_requests();
 }
@@ -652,7 +632,7 @@ void MasterNode::update_swarms(std::promise<bool>* on_finish) {
                      "pubkey_ed25519",
                      "pubkey_x25519",
                      "public_ip",
-                     "service_node_pubkey",
+                     "master_node_pubkey",
                      "mnode_revision",
                      "storage_lmq_port",
                      "storage_port",
@@ -693,9 +673,8 @@ void MasterNode::update_swarms(std::promise<bool>* on_finish) {
 }
 
 void MasterNode::process_mnodes_update(std::string_view data) {
-    std::lock_guard lock{mn_mutex_};
     auto maybe_bu = parse_swarm_update(data, our_keys_.pub);
-
+    std::lock_guard lock{mn_mutex_};
     if (maybe_bu) {
         log::debug(logcat, "Blockchain updated, rebuilding swarm list");
         on_mnodes_update(std::move(*maybe_bu));
@@ -1029,8 +1008,19 @@ void MasterNode::relay_messages(
     for (const auto& mn : mnodes) {
         auto ct = network_.contacts.find(mn);
         if (ct && *ct) {
-            for (auto& batch : batches)
-                relay_data_reliable(batch, mn, *ct);
+            for (auto& batch : batches) {
+                log::debug(
+                        logcat, "Relaying data to: {} (x25519 pubkey {})", mn, ct->pubkey_x25519);
+
+                omq_server_->request(
+                        ct->pubkey_x25519.view(),
+                        "mn.data",
+                        [](bool success, auto&& /*data*/) {
+                            if (!success)
+                                log::error(logcat, "Failed to relay batch data: timeout");
+                        },
+                        batch);
+            }
         } else {
             log::warning(
                     logcat,

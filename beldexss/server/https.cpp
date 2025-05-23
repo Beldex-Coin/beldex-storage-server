@@ -286,46 +286,16 @@ namespace {
     }
 
     std::string get_remote_address(HttpResponse& res) {
-        auto addr = res.getRemoteAddress();
+        // Either 4 (ipv4) or 16 (ipv6) bytes in network order:
+        auto addr_sv = res.getRemoteAddress();
+        // uWS offers a getRemoteAddressAsText(), but it doesn't format IPv6 addresses nicely so
+        // prefer libquic's inet_ntop-based formatting:
+        std::span addr{reinterpret_cast<const uint8_t*>(addr_sv.data()), addr_sv.size()};
         std::string result;
-        if (addr.size() == 4) {  // IPv4, packed into bytes
-            result = "{:d}"_format(fmt::join(
-                    std::span<const uint8_t, 4>{reinterpret_cast<const uint8_t*>(addr.data()), 4},
-                    "."));
+        if (addr.size() == 4) {
+            result = oxen::quic::ipv4{addr.first<4>()}.to_string();
         } else if (addr.size() == 16) {
-            // IPv6, packed into bytes.  Interpret as a series of 8 big-endian shorts and
-            // convert to hex, joined with :.  But we also want to drop leading insignificant
-            // 0's (i.e. '34f' instead of '034f'), and we want to collapse the longest sequence
-            // of 0's that we come across (so that, for example, localhost becomes `::1` instead
-            // of `0:0:0:0:0:0:0:1`).
-            std::array<uint16_t, 8> a;
-            std::memcpy(a.data(), addr.data(), 16);
-            for (auto& x : a)
-                oxenc::big_to_host_inplace(x);
-
-            size_t zero_start = 0, zero_end = 0;
-            for (size_t i = 0, start = 0, end = 0; i < a.size(); i++) {
-                if (a[i] != 0)
-                    continue;
-                if (end != i)  // This zero value starts a new zero sequence
-                    start = i;
-                end = i + 1;
-                if (end - start > zero_end - zero_start) {
-                    zero_end = end;
-                    zero_start = start;
-                }
-            }
-            result += '[';
-            auto ins = std::back_inserter(result);
-            for (size_t i = 0; i < a.size(); i++) {
-                if (i >= zero_start && i < zero_end) {
-                    if (i == zero_start)
-                        result += "::";
-                    continue;
-                }
-                fmt::format_to(ins, "{}{:x}", i > 0 && i != zero_end ? ":" : "", a[i]);
-            }
-            result += ']';
+            result = "[{}]"_format(oxen::quic::ipv6{addr.first<16>()}.to_string());
         } else
             result = "{{unknown:{}}}"_format(oxenc::to_hex(addr));
         return result;

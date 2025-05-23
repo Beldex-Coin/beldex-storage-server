@@ -16,7 +16,7 @@ uint64_t Network::pubkey_to_swarm_space(const user_pubkey& pk) {
     assert(bytes.size() == 32);
 
     uint64_t res = 0;
-    for (size_t i = 0; i < 32; i += 8)
+    for (size_t i = 0; i < bytes.size(); i += 8)
         res ^= oxenc::load_big_to_host<uint64_t>(bytes.data() + i);
 
     return res;

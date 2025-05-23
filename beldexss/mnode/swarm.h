@@ -45,7 +45,7 @@ class Swarm {
             pending_new_members_;
 
     // Extract relevant information from incoming swarm composition.
-    SwarmEvents derive_swarm_events(const swarms_t& swarms);
+    SwarmEvents derive_swarm_events(const swarms_t& swarms) const;
 
   public:
     Network& network;

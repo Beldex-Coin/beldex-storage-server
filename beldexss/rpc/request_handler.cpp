@@ -71,7 +71,7 @@ namespace {
             mnodes_json.push_back(json{
                     // Deprecated; use pubkey_legacy instead:
                     {"address", "{}.mnode"_format(oxenc::to_base32z(mnpk.view()))},
-                    // Deprecated string port for backwards compat; prefer https_port:
+                    // Deprecated string port for backwards compat; prefer port_https:
                     {"port", "{}"_format(ct->https_port)},
 
                     {"pubkey_legacy", mnpk.hex()},

@@ -18,7 +18,7 @@ static auto logswarm = log::Cat("swarm");
 
 Swarm::~Swarm() = default;
 
-SwarmEvents Swarm::derive_swarm_events(const swarms_t& swarms) {
+SwarmEvents Swarm::derive_swarm_events(const swarms_t& swarms) const {
     SwarmEvents events{};
 
     events.our_swarm_id = INVALID_SWARM_ID;
