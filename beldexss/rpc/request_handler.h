@@ -3,6 +3,7 @@
 #include <beldexss/crypto/channel_encryption.hpp>
 #include "client_rpc_endpoints.h"
 #include "onion_processing.h"
+#include "beldexss/mnode/contacts.h"
 #include <oxenc/bt_serialize.h>
 #include <beldexss/crypto/keys.h>
 #include <beldexss/mnode/master_node.h>
@@ -147,6 +148,9 @@ struct OnionRequestMetadata {
 class RequestHandler {
 
     mnode::MasterNode& master_node_;
+    const mnode::Network& network_{master_node_.network()};
+    const mnode::Swarm& swarm_{master_node_.swarm()};
+    const mnode::Contacts& contacts_{master_node_.contacts()};
     const crypto::ChannelEncryption& channel_cipher_;
     const crypto::ed25519_seckey ed25519_sk_;
 

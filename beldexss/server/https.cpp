@@ -5,9 +5,11 @@
 #include <beldexss/logging/beldex_logger.h>
 #include <beldexss/rpc/request_handler.h>
 #include <beldexss/mnode/master_node.h>
+#include <iterator>
 #include <beldexss/utils/string_utils.hpp>
 
 #include <chrono>
+#include <fmt/ranges.h>
 #include <nlohmann/json.hpp>
 #include <oxenc/base64.h>
 #include <oxenc/endian.h>
@@ -161,14 +163,13 @@ HTTPS::HTTPS(
                                 });
 
                     if (listening.empty() || required_bind_failed) {
-                        std::ostringstream error;
-                        error << "RPC HTTP server failed to bind; ";
-                        if (listening.empty())
-                            error << "no valid bind address(es) given; ";
-                        error << "tried to bind to:";
+                        std::string error =
+                                "RPC HTTP server failed to bind{}; tried to bind to: "_format(
+                                        listening.empty() ? "; no valid bind address(es) given"
+                                                          : "");
                         for (const auto& [addr, port, required] : bind)
-                            error << ' ' << addr << ':' << port;
-                        throw std::runtime_error{error.str()};
+                            fmt::format_to(std::back_inserter(error), " {}:{}", addr, port);
+                        throw std::runtime_error{error};
                     }
                 } catch (...) {
                     startup_success.set_exception(std::current_exception());
@@ -285,17 +286,12 @@ namespace {
     }
 
     std::string get_remote_address(HttpResponse& res) {
-        std::ostringstream result;
-        bool first = true;
         auto addr = res.getRemoteAddress();
+        std::string result;
         if (addr.size() == 4) {  // IPv4, packed into bytes
-            for (auto c : addr) {
-                if (first)
-                    first = false;
-                else
-                    result << '.';
-                result << +static_cast<uint8_t>(c);
-            }
+            result = "{:d}"_format(fmt::join(
+                    std::span<const uint8_t, 4>{reinterpret_cast<const uint8_t*>(addr.data()), 4},
+                    "."));
         } else if (addr.size() == 16) {
             // IPv6, packed into bytes.  Interpret as a series of 8 big-endian shorts and
             // convert to hex, joined with :.  But we also want to drop leading insignificant
@@ -319,21 +315,20 @@ namespace {
                     zero_start = start;
                 }
             }
-            result << '[' << std::hex;
+            result += '[';
+            auto ins = std::back_inserter(result);
             for (size_t i = 0; i < a.size(); i++) {
                 if (i >= zero_start && i < zero_end) {
                     if (i == zero_start)
-                        result << "::";
+                        result += "::";
                     continue;
                 }
-                if (i > 0 && i != zero_end)
-                    result << ':';
-                result << a[i];
+                fmt::format_to(ins, "{}{:x}", i > 0 && i != zero_end ? ":" : "", a[i]);
             }
-            result << ']';
+            result += ']';
         } else
-            result << "{unknown:" << oxenc::to_hex(addr) << "}";
-        return result.str();
+            result = "{{unknown:{}}}"_format(oxenc::to_hex(addr));
+        return result;
     }
 
     // Sets up a request handler that processes the initial incoming requests, sets up the
@@ -412,7 +407,7 @@ void HTTPS::create_endpoints(uWS::SSLApp& https) {
         master_node_.update_last_ping(mnode::ReachType::HTTPS);
         rpc::Response resp{http::OK};
         resp.headers.emplace_back(
-                http::MNODE_PUBKEY_HEADER, oxenc::to_base64(legacy_keys_.first.view()));
+                http::MNODE_PUBKEY_HEADER, oxenc::to_base64(legacy_keys_.pub.view()));
         queue_response_internal(*this, *res, std::move(resp));
     });
 

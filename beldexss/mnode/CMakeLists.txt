@@ -1,5 +1,7 @@
 
 add_library(mnode STATIC
+    contacts.cpp
+    network.cpp
     reachability_testing.cpp
     serialization.cpp
     master_node.cpp

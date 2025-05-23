@@ -3,6 +3,7 @@
 #include "../rpc/rate_limiter.h"
 #include "../rpc/request_handler.h"
 #include "../mnode/master_node.h"
+#include "../mnode/sn_test.h"
 #include "omq.h"
 #include "utils.h"
 
@@ -102,10 +103,11 @@ void QUIC::handle_request(std::shared_ptr<quic::message> msg) {
                 if (name == "mnode_ping")
                     handle_ping(std::move(msg));
 
-    if (name == "monitor")
-        handle_monitor_message(std::move(msg));
-    if (name == "onion_req")
-        handle_onion_request(std::move(msg));
+                if (name == "monitor")
+                    handle_monitor_message(std::move(msg));
+                
+                if (name == "onion_req")
+                    handle_onion_request(std::move(msg));
 
                 handle_client_rpc(
                         name,
@@ -206,9 +208,16 @@ void QUIC::reachability_test(std::shared_ptr<mnode::mn_test> test) {
     if (!master_node_->hf_at_least(mnode::QUIC_REACHABILITY_TESTING))
         return test->add_result(true);
 
-    auto& mn = test->mn;
+    auto maybe_ct = master_node_->contacts().find(test->pubkey);
+    if (!maybe_ct || !*maybe_ct)
+        // If we don't have any usable contact info then don't do anything: beldexd will already fail
+        // a node that hasn't broadcast usable contact info, so we don't need to worry about testing
+        // it here.
+        return;
+    const auto& ct = *maybe_ct;
+
     auto conn = ep->connect(
-            {mn.pubkey_ed25519.view(), mn.ip, mn.omq_quic_port},
+            {ct.pubkey_ed25519.view(), ct.ip, ct.omq_quic_port},
             tls_creds,
             quic::opt::handshake_timeout{5s});
     auto s = conn->open_stream<quic::BTRequestStream>();
@@ -218,14 +227,14 @@ void QUIC::reachability_test(std::shared_ptr<mnode::mn_test> test) {
             log::debug(
                     logcat,
                     "QUIC reachability test failed for {}: {}",
-                    test->mn.pubkey_legacy,
+                    test->pubkey,
                     m.timed_out ? "timeout" : "unexpected response");
             passed = false;
         } else {
             log::debug(
                     logcat,
                     "Successful response to QUIC reachability ping test of {}",
-                    test->mn.pubkey_legacy);
+                    test->pubkey);
             passed = true;
         }
         if (auto conn = m.stream()->endpoint.get_conn(m.conn_rid()))

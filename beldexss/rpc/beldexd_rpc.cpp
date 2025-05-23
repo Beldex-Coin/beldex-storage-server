@@ -17,7 +17,7 @@ static auto logcat = log::Cat("rpc");
 
 using namespace std::literals;
 
-beldexd_seckeys get_mn_privkeys(
+crypto::mnode_keypairs get_mn_keys(
         std::string_view beldexd_rpc_address, std::function<bool()> keep_trying) {
     oxenmq::OxenMQ omq{omq_logger, oxenmq::LogLevel::info};
     omq.start();
@@ -35,7 +35,7 @@ beldexd_seckeys get_mn_privkeys(
 
         if (keep_trying && !keep_trying())
             return {};
-        std::promise<beldexd_seckeys> prom;
+        std::promise<crypto::mnode_keypairs> prom;
         auto fut = prom.get_future();
         auto conn = omq.connect_remote(
                 oxenmq::address{beldexd_rpc_address},
@@ -52,18 +52,18 @@ beldexd_seckeys get_mn_privkeys(
                                                 (data.empty() ? "no data received" : data[0])};
                                     }
                                     auto r = nlohmann::json::parse(data[1]);
-                                    auto pk =
+                                    auto sk =
                                             r.value<std::string_view>("master_node_privkey", ""sv);
-                                    if (pk.empty())
+                                    if (sk.empty())
                                         throw std::runtime_error{
                                                 "main master node private key is empty (perhaps "
                                                 "beldexd is not running in master-node mode?)"};
-                                    prom.set_value(beldexd_seckeys{
-                                            crypto::legacy_seckey::from_hex(pk),
-                                            crypto::ed25519_seckey::from_hex(
+                                    prom.set_value(crypto::mnode_keypairs{
+                                            crypto::legacy_keypair::from_secret_hex(sk),
+                                            crypto::ed25519_keypair::from_secret_hex(
                                                     r.at("master_node_ed25519_privkey")
                                                             .get<std::string_view>()),
-                                            crypto::x25519_seckey::from_hex(
+                                            crypto::x25519_keypair::from_secret_hex(
                                                     r.at("master_node_x25519_privkey")
                                                             .get<std::string_view>())});
                                 } catch (...) {

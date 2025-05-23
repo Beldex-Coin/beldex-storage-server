@@ -1,10 +1,7 @@
 #include "stats.h"
-#include <algorithm>
 #include <chrono>
-#include <iostream>
 
 #include <oxenmq/oxenmq.h>
-#include <unordered_map>
 
 namespace beldexss::mnode {
 

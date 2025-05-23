@@ -1,12 +1,12 @@
 #pragma once
 
-#include "sn_record.h"
-
 #include <atomic>
 #include <chrono>
 #include <deque>
 #include <mutex>
 #include <unordered_map>
+
+#include "../crypto/keys.h"
 
 namespace oxenmq {
 class OxenMQ;

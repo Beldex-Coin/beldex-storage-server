@@ -11,7 +11,6 @@
 #include <shared_mutex>
 
 #include "../common/namespace.h"
-#include "../mnode/sn_record.h"
 #include "utils.h"
 
 namespace beldexss {
@@ -23,7 +22,8 @@ namespace rpc {
 
 namespace mnode {
     class MasterNode;
-}
+    struct mn_test;
+}  // namespace mnode
 
 struct message;
 
