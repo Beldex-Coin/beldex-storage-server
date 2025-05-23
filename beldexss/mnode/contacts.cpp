@@ -46,6 +46,7 @@ bool Contacts::_update(
         upd(curr.ip, c.ip);
         upd(curr.https_port, c.https_port);
         upd(curr.omq_quic_port, c.omq_quic_port);
+        upd(curr.version, c.version);
     } else {
         if (c.pubkey_x25519) {
             x_pk[c.pubkey_x25519] = pk;

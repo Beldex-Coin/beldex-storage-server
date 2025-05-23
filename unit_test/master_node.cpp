@@ -1,5 +1,4 @@
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include <oxenmq/oxenmq.h>
 #include <beldexss/crypto/keys.h>
@@ -24,7 +23,7 @@ static beldexss::mnode::contact create_dummy_contact() {
     const auto pk_ed25519 = ed25519_pubkey::from_hex(
             "a38418ae9af2fedb560f400953f91cefb91a7a7efc971edfa31744ce5c4e319a");
 
-    return {oxen::quic::ipv4{"0.0.0.0"}, 8080, 8081, pk_ed25519, pk_x25519};
+    return {oxen::quic::ipv4{"0.0.0.0"}, 8080, 8081, {2, 9, 0}, pk_ed25519, pk_x25519};
 }
 
 static void test_ip_update(

@@ -135,6 +135,7 @@ int main(int argc, char* argv[]) {
                 oxen::quic::ipv4{0},
                 options.https_port,
                 options.omq_quic_port,
+                STORAGE_SERVER_VERSION,
                 ed_keys.pub,
                 x_keys.pub};
 

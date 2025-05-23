@@ -166,6 +166,7 @@ static std::optional<block_update> parse_swarm_update(
                     ipv4{mn_json.value<std::string>("public_ip", "0.0.0.0")},
                     mn_json.value<uint16_t>("storage_port", 0),
                     mn_json.value<uint16_t>("storage_lmq_port", 0),
+                    mn_json.value<std::array<uint16_t, 3>>("storage_server_version", {0, 0, 0}),
                     pk_ed25519_hex.empty() ? crypto::ed25519_pubkey{}
                                            : crypto::ed25519_pubkey::from_hex(pk_ed25519_hex),
                     pk_x25519_hex.empty() ? crypto::x25519_pubkey{}
@@ -211,19 +212,25 @@ void MasterNode::bootstrap_fallback() {
 
     log::trace(logcat, "Bootstrapping peer data");
 
-    std::string params = json{{"fields",
-                               {{"master_node_pubkey", true},
-                                {"swarm_id", true},
-                                {"storage_port", true},
-                                {"public_ip", true},
-                                {"height", true},
-                                {"block_hash", true},
-                                {"hardfork", true},
-                                {"mnode_revision", true},
-                                {"pubkey_x25519", true},
-                                {"pubkey_ed25519", true},
-                                {"storage_lmq_port", true}}}}
-                                 .dump();
+    // TODO: once all bootstraps are on 11.x releases, we can change the fields value to be an array
+    // of field names rather than this dict of {"field": true, "field2": true, ...} pairs.
+    std::string params = json{
+            {"fields",
+             {
+                     {"master_node_pubkey", true},
+                     {"swarm_id", true},
+                     {"storage_port", true},
+                     {"public_ip", true},
+                     {"height", true},
+                     {"block_hash", true},
+                     {"hardfork", true},
+                     {"mnode_revision", true},
+                     {"pubkey_x25519", true},
+                     {"pubkey_ed25519", true},
+                     {"storage_lmq_port", true},
+                     {"storage_server_version", true},
+             }}}.dump();
+
 
     std::vector<oxenmq::address> seed_nodes;
     if (beldexss::is_mainnet) {
@@ -422,6 +429,17 @@ void MasterNode::check_new_members() {
                     "Leaving {} as pending: node {}",
                     pk,
                     c ? "has missing contact info" : "is unknown");
+            continue;
+        }
+
+        if (c->version < NEW_SWARM_MEMBER_HANDSHAKE_VERSION) {
+            log::debug(
+                    logcat,
+                    "Skipping handshake with new swarm member {}: v{}+ required, remote is v{}",
+                    pk,
+                    fmt::join(NEW_SWARM_MEMBER_HANDSHAKE_VERSION, "."),
+                    fmt::join(c->version, "."));
+            swarm_.set_member_ready(pk);
             continue;
         }
 
@@ -627,17 +645,21 @@ void MasterNode::update_swarms(std::promise<bool>* on_finish) {
 
     json params{
             {"fields",
-             {{"master_node_pubkey", true},
-              {"swarm_id", true},
-              {"storage_port", true},
-              {"public_ip", true},
-              {"height", true},
-              {"block_hash", true},
-              {"hardfork", true},
-              {"mnode_revision", true},
-              {"pubkey_x25519", true},
-              {"pubkey_ed25519", true},
-              {"storage_lmq_port", true}}},
+             {
+                     "block_hash",
+                     "hardfork",
+                     "height",
+                     "pubkey_ed25519",
+                     "pubkey_x25519",
+                     "public_ip",
+                     "service_node_pubkey",
+                     "mnode_revision",
+                     "storage_lmq_port",
+                     "storage_port",
+                     "storage_server_version",
+                     "swarm_id",
+             }},
+
             {"active_only", false}};
     if (got_first_response_ && !block_hash_.empty())
         params["poll_block_hash"] = block_hash_;

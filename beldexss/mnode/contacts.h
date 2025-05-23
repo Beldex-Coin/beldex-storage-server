@@ -25,6 +25,7 @@ struct contact {
     ipv4 ip{};
     uint16_t https_port{0};
     uint16_t omq_quic_port{0};  // Same port number for both: quic is UDP, OMQ is TCP
+    std::array<uint16_t, 3> version{0, 0, 0};
     crypto::ed25519_pubkey pubkey_ed25519{};
     crypto::x25519_pubkey pubkey_x25519{};
 
