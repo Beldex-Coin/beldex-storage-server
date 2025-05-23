@@ -55,12 +55,6 @@ using hf_revision = std::pair<int, int>;
 // The earliest hardfork *this* version of storage server will work on:
 inline constexpr hf_revision STORAGE_SERVER_HARDFORK = {12, 1};
 
-// The hardfork at which multiple-timestamp `expiry` requests start being accepted:
-inline constexpr hf_revision MULTI_EXPIRY_HARDFORK = {12, 4};
-
-// The hardfork at which we start testing QUIC reachability
-inline constexpr hf_revision QUIC_REACHABILITY_TESTING = {12, 4};
-
 // The hardfork at which we start allowing 30d TTLs in private namespaces.
 inline constexpr hf_revision HARDFORK_EXTENDED_PRIVATE_TTL = {12, 3};
 

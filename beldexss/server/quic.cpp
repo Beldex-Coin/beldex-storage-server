@@ -205,9 +205,6 @@ void QUIC::notify(std::vector<connection_id>& conns, std::string_view notificati
 }
 
 void QUIC::reachability_test(std::shared_ptr<mnode::mn_test> test) {
-    if (!master_node_->hf_at_least(mnode::QUIC_REACHABILITY_TESTING))
-        return test->add_result(true);
-
     auto maybe_ct = master_node_->contacts().find(test->pubkey);
     if (!maybe_ct || !*maybe_ct)
         // If we don't have any usable contact info then don't do anything: beldexd will already fail

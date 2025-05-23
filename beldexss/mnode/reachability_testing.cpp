@@ -51,11 +51,10 @@ static void check_incoming_tests_impl(
     }
 }
 
-void reachability_testing::check_incoming_tests(const clock::time_point& now, bool quic) {
+void reachability_testing::check_incoming_tests(const clock::time_point& now) {
     check_incoming_tests_impl("HTTP", now, startup, last_https);
     check_incoming_tests_impl("OxenMQ", now, startup, last_omq);
-    if (quic)
-        check_incoming_tests_impl("QUIC", now, startup, last_quic);
+    check_incoming_tests_impl("QUIC", now, startup, last_quic);
 }
 
 void reachability_testing::incoming_ping(ReachType type, const clock::time_point& now) {
