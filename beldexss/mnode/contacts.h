@@ -65,10 +65,25 @@ class Contacts {
   public:
     explicit Contacts(oxenmq::OxenMQ& omq) : omq{omq} {}
 
+    // SharedLockable support.  This is publicly exposed for more efficient access to methods ending
+    // in _locked.
+    void lock_shared() const { return mut.lock_shared(); }
+    bool try_lock_shared() const { return mut.try_lock_shared(); }
+    void unlock_shared() const { return mut.unlock_shared(); }
+
     // Looks up a contact; returns nullopt if the pubkey was not found.  Returns an
     // evaluates-as-false contact if the pubkey *was* found, but we have not yet received enough
     // information to contact it.
     std::optional<contact> find(const crypto::legacy_pubkey& pk) const;
+
+    // Looks up a pubkey and returns a pointer to the contact record, or nullptr if not found.  The
+    // caller must already hold a shared lock on this Contacts object to call this, and the pointer
+    // is only valid while that lock remains held.
+    const contact* find_locked(const crypto::legacy_pubkey& pk) const {
+        if (auto it = contacts.find(pk); it != contacts.end())
+            return &it->second;
+        return nullptr;
+    }
 
     // Looks up a contact by its x25519 pubkey; returns nullopt if the x25519 pubkey was not found.
     // Returns an evaluates-as-false contact if the pubkey was found, but valid ip/ports are not yet

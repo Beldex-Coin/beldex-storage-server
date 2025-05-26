@@ -672,6 +672,13 @@ void RequestHandler::process_client_req(
 }
 
 void RequestHandler::process_client_req(
+        rpc::active_nodes_bin&&, std::function<void(rpc::Response)> cb) {
+    auto blobptr = master_node_.network().all_nodes_blob();
+    std::string_view blob{reinterpret_cast<const char*>(blobptr->data()), blobptr->size()};
+    cb({http::OK, blob, std::move(blobptr)});
+}
+
+void RequestHandler::process_client_req(
         rpc::get_swarm&& req, std::function<void(rpc::Response)> cb) {
     auto swarm = network_.get_swarm_for(req.pubkey);
 

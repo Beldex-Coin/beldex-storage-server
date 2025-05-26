@@ -88,10 +88,69 @@ void Network::update_swarms(
             new_pks.end(),
             std::back_inserter(removed));
 
-    contacts.update_and_erase(
+    int contact_changes = contacts.update_and_erase(
             new_contacts.begin(), new_contacts.end(), removed.begin(), removed.end());
+    
+    if (all_nodes_blob_ && (contact_changes || swarms_ != new_swarms))
+        all_nodes_blob_.reset();
 
     swarms_ = std::move(new_swarms);
+}
+
+static constexpr size_t PER_MNODE_BLOB_SIZE = 51;
+static_assert(
+        sizeof(crypto::ed25519_pubkey) + sizeof(uint64_t) + sizeof(oxen::quic::ipv4) +
+                sizeof(uint16_t) + sizeof(uint16_t) + 3 ==
+        PER_MNODE_BLOB_SIZE);
+
+std::shared_ptr<std::vector<std::byte>> Network::all_nodes_blob() const {
+    {
+        std::shared_lock lock{mut_};
+        if (all_nodes_blob_)
+            return all_nodes_blob_;
+    }
+
+    std::unique_lock lock{mut_, std::defer_lock};
+    std::shared_lock c_lock{contacts, std::defer_lock};
+    std::lock(lock, c_lock);
+
+    size_t mnode_count = 0;
+    for (auto& [swid, members] : swarms_)
+        mnode_count += members.size();
+
+    auto blob = std::make_shared<std::vector<std::byte>>();
+    blob->resize(mnode_count * PER_MNODE_BLOB_SIZE);
+    auto* ptr = blob->data();
+    for (auto& [swid, members] : swarms_) {
+        const uint64_t big_swid = oxenc::host_to_big(swid);
+        for (auto& pk : members) {
+            auto* c = contacts.find_locked(pk);
+            if (!c || !c->pubkey_ed25519)
+                continue;
+#ifndef NDEBUG
+            auto* start_ptr = ptr;
+#endif
+            std::memcpy(ptr, c->pubkey_ed25519.data(), c->pubkey_ed25519.size());
+            ptr += c->pubkey_ed25519.size();
+            std::memcpy(ptr, &big_swid, sizeof(big_swid));
+            ptr += sizeof(big_swid);
+            oxenc::write_host_as_big(c->ip.addr, ptr);
+            ptr += sizeof(c->ip.addr);
+            oxenc::write_host_as_big(c->https_port, ptr);
+            ptr += sizeof(c->https_port);
+            oxenc::write_host_as_big(c->omq_quic_port, ptr);
+            ptr += sizeof(c->omq_quic_port);
+            for (auto v16 : c->version)
+                *ptr++ = static_cast<std::byte>(std::min<uint16_t>(v16, 255));
+            assert(ptr == start_ptr + PER_MNODE_BLOB_SIZE);
+        }
+    }
+
+    // If we skipped some uncontactable nodes then we might have overallocated:
+    blob->resize(ptr - blob->data());
+
+    all_nodes_blob_ = blob;
+    return blob;
 }
 
 }  // namespace beldexss::mnode

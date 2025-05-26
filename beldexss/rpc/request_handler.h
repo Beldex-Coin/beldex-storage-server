@@ -61,11 +61,12 @@ inline constexpr int RETRIEVE_MAX_SIZE = 7'800'000;
 // Maximum subrequests that can be stuffed into a single batch request
 inline constexpr size_t BATCH_REQUEST_MAX = 20;
 
-// Simpler wrapper that works for most of our responses
+// Simple wrapper that works for most of our responses
 struct Response {
     http::response_code status = http::OK;
     std::variant<std::string, std::string_view, nlohmann::json> body;
     std::vector<std::pair<std::string, std::string>> headers;
+    std::shared_ptr<void> keepalive;
 
     Response() = default;
     Response(
@@ -73,6 +74,8 @@ struct Response {
             std::variant<std::string, std::string_view, nlohmann::json> body = ""sv,
             std::vector<std::pair<std::string, std::string>> headers = {}) :
             status{status}, body{std::move(body)}, headers{std::move(headers)} {}
+            Response(http::response_code status, std::string_view body, std::shared_ptr<void> keepalive) :
+            status{status}, body{body}, keepalive{keepalive} {}
 };
 
 // Views the string or string_view body inside a Response.  Should only be called when the body
@@ -196,6 +199,7 @@ class RequestHandler {
     void process_client_req(rpc::retrieve&& req, std::function<void(Response)> cb);
     void process_client_req(rpc::get_swarm&& req, std::function<void(Response)> cb);
     void process_client_req(rpc::beldexd_request&& req, std::function<void(Response)> cb);
+    void process_client_req(rpc::active_nodes_bin&& req, std::function<void(Response)> cb);
     void process_client_req(rpc::info&&, std::function<void(Response)> cb);
     void process_client_req(rpc::delete_all&&, std::function<void(Response)> cb);
     void process_client_req(rpc::delete_msgs&&, std::function<void(Response)> cb);
