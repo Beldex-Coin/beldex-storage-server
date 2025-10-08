@@ -155,6 +155,12 @@ static std::optional<block_update> parse_swarm_update(
         int missing_contacts = 0, total = 0;
 
         for (const auto& mn_json : master_node_states) {
+            /// We want to include (test) decommissioned nodes, but not
+            /// partially funded ones.
+            if (!mn_json.at("funded").get<bool>()) {
+                continue;
+            }
+
             total++;
             const auto& pk_hex = mn_json.at("master_node_pubkey").get_ref<const std::string&>();
             const auto pk_x25519_hex = mn_json.value<std::string_view>("pubkey_x25519", ""sv);
@@ -217,18 +223,19 @@ void MasterNode::bootstrap_fallback() {
     std::string params = json{
             {"fields",
              {
-                     {"master_node_pubkey", true},
-                     {"swarm_id", true},
-                     {"storage_port", true},
-                     {"public_ip", true},
-                     {"height", true},
-                     {"block_hash", true},
-                     {"hardfork", true},
-                     {"mnode_revision", true},
-                     {"pubkey_x25519", true},
-                     {"pubkey_ed25519", true},
-                     {"storage_lmq_port", true},
-                     {"storage_server_version", true},
+                     "block_hash",
+                     "hardfork",
+                     "height",
+                     "pubkey_ed25519",
+                     "pubkey_x25519",
+                     "public_ip",
+                     "master_node_pubkey",
+                     "mnode_revision",
+                     "storage_lmq_port",
+                     "storage_port",
+                     "storage_server_version",
+                     "funded",
+                     "swarm_id",
              }}}.dump();
 
 
@@ -248,8 +255,8 @@ void MasterNode::bootstrap_fallback() {
                 "bcf02e1364237e549f45accc8cab95895198c0bc0e78a86f52df74d1c2dd8204");
     } else {
         seed_nodes.emplace_back(
-                "curve://54.80.140.73:19091/"
-                "6713a9a96ea47b25223de373edc0203cf8b4d625e96bf2656b042db8e398064");
+                "curve://154.53.62.32:29091/"
+                "214324a2b91ac39917bf8e403f11e744bd5a42b88946864cbdb79487726f146c");
     }
 
     auto req_counter = std::make_shared<std::atomic<int>>(0);
@@ -637,6 +644,7 @@ void MasterNode::update_swarms(std::promise<bool>* on_finish) {
                      "storage_lmq_port",
                      "storage_port",
                      "storage_server_version",
+                     "funded",
                      "swarm_id",
              }},
 
@@ -659,6 +667,7 @@ void MasterNode::update_swarms(std::promise<bool>* on_finish) {
                 }
 
                 try {
+                    // std::lock_guard lock{mn_mutex_};
                     process_mnodes_update(data[1]);
                 } catch (const std::exception& e) {
                     log::error(logcat, "Exception caught on swarm update: {}", e.what());
@@ -676,6 +685,29 @@ void MasterNode::process_mnodes_update(std::string_view data) {
     auto maybe_bu = parse_swarm_update(data, our_keys_.pub);
     std::lock_guard lock{mn_mutex_};
     if (maybe_bu) {
+        int total_bu = 0;
+        int contactable_bu = 0;
+
+        for (auto& [pk, c] : maybe_bu->contacts) {
+            total_bu++;
+            if (c)  // Assuming 'c' is truthy when contact is valid
+                contactable_bu++;
+        }
+
+        int missing_bu = total_bu - contactable_bu;
+
+        if (total_bu >= (beldexss::is_mainnet ? 100 : 10) &&
+            missing_bu <= (MISSING_PUBKEY_THRESHOLD::num * total_bu) /
+                           MISSING_PUBKEY_THRESHOLD::den) 
+        {
+            log::info(
+                logcat,
+                "Initialized from beldexd with {}/{} MN records",
+                total_bu - missing_bu,
+                total_bu
+            );
+            syncing_ = false;
+        }
         log::debug(logcat, "Blockchain updated, rebuilding swarm list");
         on_mnodes_update(std::move(*maybe_bu));
     }
@@ -734,7 +766,9 @@ void MasterNode::ping_peers() {
     auto now = std::chrono::steady_clock::now();
 
     // Check if we've been tested (reached) recently ourselves
-    reach_records_.check_incoming_tests(now);
+    reach_records_.check_incoming_tests(
+            now,
+            /*quic=*/hf_at_least(QUIC_REACHABILITY_TESTING));
 
     if (status_ == MnodeStatus::DECOMMISSIONED) {
         log::trace(logcat, "Skipping peer testing (decommissioned)");
@@ -841,6 +875,7 @@ void MasterNode::beldexd_ping() {
     std::lock_guard guard(mn_mutex_);
 
     json beldexd_params{
+        {"version", STORAGE_SERVER_VERSION},
         {"pubkey_ed25519", our_contact_.pubkey_ed25519.hex()},
         {"https_port", our_contact_.https_port},
         {"omq_port", our_contact_.omq_quic_port}};
@@ -895,17 +930,17 @@ void MasterNode::beldexd_ping() {
             log::debug(logcat, "Renewed beldexd new block notification subscription");
     });
 
-    omq_server_.beldexd_request("sub.mnode_addr", [](bool success, auto&& result) {
-        if (!success || result.empty())
-            log::critical(
-                    logcat,
-                    "Failed to subscribe to beldexd address notifications: {}",
-                    result.empty() ? "response is empty" : result.front());
-        else if (result.front() == "OK")
-            log::info(logcat, "Subscribed to beldexd address change notifications");
-        else if (result.front() == "ALREADY")
-            log::debug(logcat, "Renewed beldexd address change notification subscription");
-    });
+    // omq_server_.beldexd_request("sub.mnode_addr", [](bool success, auto&& result) {
+    //     if (!success || result.empty())
+    //         log::critical(
+    //                 logcat,
+    //                 "Failed to subscribe to beldexd address notifications: {}",
+    //                 result.empty() ? "response is empty" : result.front());
+    //     else if (result.front() == "OK")
+    //         log::info(logcat, "Subscribed to beldexd address change notifications");
+    //     else if (result.front() == "ALREADY")
+    //         log::debug(logcat, "Renewed beldexd address change notification subscription");
+    // });
 }
 
 void MasterNode::report_reachability(
