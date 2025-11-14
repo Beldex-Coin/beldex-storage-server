@@ -13,10 +13,10 @@ endif()
 cmake_minimum_required(VERSION 3.13)
 
 project(beldexss
-    VERSION 2.3.0
+    VERSION 2.4.0
     LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS FALSE)
 
@@ -75,6 +75,7 @@ else()
   check_submodule(external/oxenc)
   check_submodule(external/oxen-mq cppzmq)
   check_submodule(external/oxen-logging fmt spdlog)
+  check_submodule(external/oxen-libquic)
   check_submodule(external/nlohmann_json)
   check_submodule(external/uWebSockets uSockets)
   check_submodule(external/cpr)
@@ -104,14 +105,17 @@ add_subdirectory(external)
 
 add_subdirectory(beldexss)
 
-
 if (BUILD_TESTS)
     add_subdirectory(unit_test)
 endif ()
 
 add_executable(onion-request EXCLUDE_FROM_ALL contrib/onion-request.cpp)
 set_target_properties(onion-request PROPERTIES RUNTIME_OUTPUT_DIRECTORY contrib)
-target_link_libraries(onion-request common crypto cpr::cpr oxenmq::oxenmq)
+target_link_libraries(onion-request common crypto cpr::cpr oxenmq::oxenmq quic)
 target_include_directories(onion-request PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(quic-reach-test EXCLUDE_FROM_ALL contrib/quic-reach-test.cpp)
+set_target_properties(quic-reach-test PROPERTIES RUNTIME_OUTPUT_DIRECTORY contrib)
+target_link_libraries(quic-reach-test quic sodium fmt::fmt)
 
 include(cmake/archive.cmake)

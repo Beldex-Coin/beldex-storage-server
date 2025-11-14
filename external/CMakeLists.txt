@@ -60,19 +60,42 @@ macro(system_or_submodule BIGNAME smallname pkgconf subdir)
   endif()
 endmacro()
 
-system_or_submodule(OXENC oxenc liboxenc>=1.0.4 oxenc)
-system_or_submodule(OXENMQ oxenmq liboxenmq>=1.2.13 oxen-mq)
+system_or_submodule(OXENC oxenc liboxenc>=1.4.0 oxenc)
+
+set(LIBQUIC_BUILD_TESTS OFF CACHE BOOL "")
+system_or_submodule(OXENQUIC quic liboxenquic>=1.4.0 oxen-libquic)
+
+system_or_submodule(OXENMQ oxenmq liboxenmq>=1.2.20 oxen-mq)
 set(JSON_MultipleHeaders ON CACHE BOOL "") # Allows multi-header nlohmann use
 system_or_submodule(NLOHMANN nlohmann_json nlohmann_json>=3.7.0 nlohmann_json)
 system_or_submodule(CLI11 CLI11 CLI11>=2.2.0 CLI11)
 
+# libevent
+if(NOT TARGET libevent::core)
+    add_library(libevent_core INTERFACE)
+    pkg_check_modules(LIBEVENT_core libevent_core>=2.1 IMPORTED_TARGET REQUIRED)
+    target_link_libraries(libevent_core INTERFACE PkgConfig::LIBEVENT_core)
+    add_library(libevent::core ALIAS libevent_core)
+
+    add_library(libevent_threads INTERFACE)
+    if(NOT WIN32)
+        pkg_check_modules(LIBEVENT_pthreads libevent_pthreads>=2.1 IMPORTED_TARGET REQUIRED)
+        target_link_libraries(libevent_threads INTERFACE PkgConfig::LIBEVENT_pthreads)
+    endif()
+    add_library(libevent::threads ALIAS libevent_threads)
+else()
+    # If this already exists it is probably via the one oxen-libquic provides when used as a submodule
+    message(STATUS "Using pre-existing libevent::core target for libevent")
+endif()
 
 if (STATIC OR FORCE_SPDLOG_SUBMODULE OR FORCE_FMT_SUBMODULE)
     set(BELDEX_LOGGING_FORCE_SUBMODULES ON CACHE INTERNAL "")
 endif()
-set(BELDEX_LOGGING_SOURCE_ROOT "${PROJECT_SOURCE_DIR}/beldexss" CACHE INTERNAL "")
-add_subdirectory(oxen-logging)
-
+if(NOT TARGET oxen::logging)
+  add_subdirectory(oxen-logging)
+endif()
+oxen_logging_add_source_dir("${PROJECT_SOURCE_DIR}")
+oxen_logging_add_source_dir("${PROJECT_SOURCE_DIR}/beldexss")
 
 # uSockets doesn't really have a proper build system (just a very simple Makefile) so build it
 # ourselves.
@@ -203,9 +226,9 @@ if(NOT BUILD_STATIC_DEPS) # Under BUILD_STATIC_DEPS the SQLite::SQLite3 target i
       URL ${sqlite_urls}
       URL_HASH ${SQLITE3_HASH}
       DOWNLOAD_NO_PROGRESS ON
-      CONFIGURE_COMMAND ./configure --disable-shared --prefix=${CMAKE_CURRENT_BINARY_DIR}/sqlite3 --with-pic "CC=${deps_cc}" "CFLAGS=${deps_CFLAGS}"
+      CONFIGURE_COMMAND ./configure --disable-shared --prefix=${CMAKE_CURRENT_BINARY_DIR}/sqlite3 "CC=${deps_cc}" "CFLAGS=${deps_CFLAGS}"
       BUILD_COMMAND true
-      INSTALL_COMMAND make install-includeHEADERS install-libLTLIBRARIES
+      INSTALL_COMMAND make install-headers install-lib
       BUILD_BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/sqlite3/lib/libsqlite3.a ${CMAKE_CURRENT_BINARY_DIR}/sqlite3/include/sqlite3.h
       )
     add_library(SQLite::SQLite3 STATIC IMPORTED GLOBAL)
@@ -233,3 +256,5 @@ set(SQLITECPP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SQLITECPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(SQLiteCpp EXCLUDE_FROM_ALL)
+
+file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/ignored/sqlite3.h")

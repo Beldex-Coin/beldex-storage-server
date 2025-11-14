@@ -6,7 +6,7 @@
 #include <string>
 #include <variant>
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 
 // Maximum onion request hops we'll accept before we return an error; this is deliberately
 // larger than we actually use so that the client can choose to obscure hop positioning by
@@ -27,8 +27,6 @@ struct RelayToNodeInfo {
     crypto::ed25519_pubkey next_node;
 };
 
-std::ostream& operator<<(std::ostream& os, const RelayToNodeInfo& p);
-
 bool operator==(const RelayToNodeInfo& lhs, const RelayToNodeInfo& rhs);
 
 /// The request is to be forwarded to some non-SS server
@@ -45,8 +43,6 @@ struct RelayToServerInfo {
     // Request's target
     std::string target;
 };
-
-std::ostream& operator<<(std::ostream& os, const RelayToServerInfo& p);
 
 bool operator==(const RelayToServerInfo& lhs, const RelayToServerInfo& rhs);
 
@@ -71,8 +67,6 @@ struct FinalDestinationInfo {
     // response as base64; if false return the encrypted response as-is.
     bool base64 = true;
 };
-
-std::ostream& operator<<(std::ostream& os, const FinalDestinationInfo& p);
 
 bool operator==(const FinalDestinationInfo& lhs, const FinalDestinationInfo& rhs);
 
@@ -99,4 +93,7 @@ ParsedInfo process_inner_request(std::string plaintext);
 // contain a query string.
 bool is_onion_url_target_allowed(std::string_view uri);
 
-}  // namespace beldex::rpc
+// Extracts a x25519 pubkey from a hex string. Warns and throws on invalid input.
+crypto::x25519_pubkey extract_x25519_from_hex(std::string_view hex);
+
+}  // namespace beldexss::rpc

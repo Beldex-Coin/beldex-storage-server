@@ -1,16 +1,14 @@
 #pragma once
 
 #include <beldexss/crypto/keys.h>
-#include "sn_record.h"
 
 #include <chrono>
 #include <queue>
 #include <random>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 using namespace std::literals;
 
@@ -34,7 +32,7 @@ namespace detail {
 
 class Swarm;
 
-enum class ReachType { HTTPS, OMQ };
+enum class ReachType { HTTPS, OMQ, QUIC };
 
 class reachability_testing {
   public:
@@ -61,6 +59,9 @@ class reachability_testing {
     // test at all but still have lots of failing nodes we want to test right away when we get
     // recommissioned).
     inline static constexpr int MAX_RETESTS_PER_TICK = 4;
+
+    // The number of random nodes that we test per tick, in addition to retests (see above).
+    inline static constexpr int RANDOM_TESTS_PER_TICK = 1;
 
     // Maximum time without a ping before we start whining about it.
     //
@@ -102,6 +103,7 @@ class reachability_testing {
     // warn about possible network issues.
     detail::incoming_test_state last_https;
     detail::incoming_test_state last_omq;
+    detail::incoming_test_state last_quic;
 
   public:
     // If it is time to perform another random test, this returns the next node to test from the
@@ -113,13 +115,13 @@ class reachability_testing {
     //
     // `requeue` is mainly for internal use: if false it avoids rebuilding the queue if we run
     // out (and instead just return nullopt).
-    std::optional<mn_record> next_random(
+    std::optional<crypto::legacy_pubkey> next_random(
             const Swarm& swarm, const clock::time_point& now = clock::now(), bool requeue = true);
 
     // Removes and returns up to MAX_RETESTS_PER_TICK nodes that are due to be tested (i.e.
     // next-testing-time <= now).  Returns [mnrecord, #previous-failures] for each.
-    std::vector<std::pair<mn_record, int>> get_failing(
-            const Swarm& swarm, const clock::time_point& now = clock::now());
+    std::vector<std::pair<crypto::legacy_pubkey, int>> get_failing(
+            clock::time_point now = clock::now());
 
     // Adds a bad node pubkey to the failing list, to be re-tested soon (with a backoff
     // depending on `failures`; see TESTING_BACKOFF).  `previous_failures` should be the number
@@ -131,11 +133,11 @@ class reachability_testing {
     // node (e.g. because it is not passing, or because it deregistered).
     void remove_node_from_failing(const crypto::legacy_pubkey& pk);
 
-    // Called when this storage server receives an incoming HTTP or OMQ ping
+    // Called when this storage server receives an incoming HTTP, OMQ or QUIC ping
     void incoming_ping(ReachType type, const clock::time_point& now = clock::now());
 
     // Check whether we received incoming pings recently
-    void check_incoming_tests(const clock::time_point& now = clock::now());
+    void check_incoming_tests(const clock::time_point& now, bool quic);
 };
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

@@ -1,5 +1,7 @@
 
 add_library(mnode STATIC
+    contacts.cpp
+    network.cpp
     reachability_testing.cpp
     serialization.cpp
     master_node.cpp
@@ -9,13 +11,13 @@ add_library(mnode STATIC
 target_link_libraries(mnode
     PUBLIC
     oxenmq::oxenmq
+    cpr::cpr
     PRIVATE
     crypto
     utils
+    quic
     server
     logging
     rpc
     oxenc::oxenc
-
-    cpr::cpr
     sodium)

@@ -14,7 +14,7 @@ extern "C" {
 
 #include <cstddef>
 
-namespace beldex {
+namespace beldexss {
 
 namespace {
 
@@ -22,7 +22,7 @@ namespace {
     auto logcat = log::Cat("server");
 
     /* Add extension using V3 code: we can set the config file as NULL
-     * because we wont reference any other sections.
+     * because we won't reference any other sections.
      */
 
     int add_ext(X509* cert, int nid, char* value) {
@@ -162,8 +162,9 @@ void generate_dh_pem(const std::filesystem::path& dh_path) {
 
     log::info(logcat, "DH parameter done!");
     FILE* pFile = NULL;
-    pFile = fopen(dh_path.u8string().c_str(), "wt");
+    pFile = fopen(reinterpret_cast<const char*>(dh_path.u8string().c_str()), "wt");
     PEM_write_DHparams(pFile, dh);
+    DH_free(dh);
     fclose(pFile);
 }
 
@@ -182,10 +183,10 @@ void generate_cert(const std::filesystem::path& cert_path, const std::filesystem
         goto err;
     // X509_print_fp(stdout, x509);
 
-    key_f = fopen(key_path.u8string().c_str(), "wt");
+    key_f = fopen(reinterpret_cast<const char*>(key_path.u8string().c_str()), "wt");
     if (!PEM_write_PrivateKey(key_f, pkey, NULL, NULL, 0, NULL, NULL))
         goto err;
-    cert_f = fopen(cert_path.u8string().c_str(), "wt");
+    cert_f = fopen(reinterpret_cast<const char*>(cert_path.u8string().c_str()), "wt");
     PEM_write_X509(cert_f, x509);
 
 err:
@@ -200,4 +201,4 @@ err:
     BIO_free(bio_err);
 }
 
-}  // namespace beldex
+}  // namespace beldexss

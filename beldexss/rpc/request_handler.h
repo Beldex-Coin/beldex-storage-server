@@ -3,24 +3,24 @@
 #include <beldexss/crypto/channel_encryption.hpp>
 #include "client_rpc_endpoints.h"
 #include "onion_processing.h"
+#include "beldexss/mnode/contacts.h"
 #include <oxenc/bt_serialize.h>
 #include <beldexss/crypto/keys.h>
 #include <beldexss/mnode/master_node.h>
 #include <beldexss/utils/string_utils.hpp>
 #include <beldexss/server/utils.h>
 #include <beldexss/utils/time.hpp>
+#include <beldexss/http/http_client.h>
 
 #include <chrono>
-#include <forward_list>
-#include <future>
 #include <string>
 #include <string_view>
 #include <type_traits>
-
-#include <nlohmann/json_fwd.hpp>
 #include <variant>
 
-namespace beldex::rpc {
+#include <nlohmann/json_fwd.hpp>
+
+namespace beldexss::rpc {
 
 // When a storage test returns a "retry" response, we retry again after this interval:
 inline constexpr auto TEST_RETRY_INTERVAL = 50ms;
@@ -52,20 +52,21 @@ inline constexpr auto SIGNATURE_TOLERANCE_FORWARDED = 70s;
 // several ways with multiple layers of base64 encoding that can occur: first, for json, the body
 // gets base64 encoded, but then onion requests (by default) also b64 encode the encrypted payload,
 // so we might have double base64 encoding.  We include the first b64 encoding overhead in our size
-// calculation, but not the second, and so this value is reduced to accomodate it.
+// calculation, but not the second, and so this value is reduced to m,modate it.
 //
 // The maximum network message size is 10MiB, which means the max before b64 encoding is 7.5MiB
-// (7864320).  We allow for some respoinse overhead, which lands us on this effective maximum:
+// (7864320).  We allow for some response overhead, which lands us on this effective maximum:
 inline constexpr int RETRIEVE_MAX_SIZE = 7'800'000;
 
 // Maximum subrequests that can be stuffed into a single batch request
 inline constexpr size_t BATCH_REQUEST_MAX = 20;
 
-// Simpler wrapper that works for most of our responses
+// Simple wrapper that works for most of our responses
 struct Response {
     http::response_code status = http::OK;
     std::variant<std::string, std::string_view, nlohmann::json> body;
     std::vector<std::pair<std::string, std::string>> headers;
+    std::shared_ptr<void> keepalive;
 
     Response() = default;
     Response(
@@ -73,6 +74,8 @@ struct Response {
             std::variant<std::string, std::string_view, nlohmann::json> body = ""sv,
             std::vector<std::pair<std::string, std::string>> headers = {}) :
             status{status}, body{std::move(body)}, headers{std::move(headers)} {}
+            Response(http::response_code status, std::string_view body, std::shared_ptr<void> keepalive) :
+            status{status}, body{body}, keepalive{keepalive} {}
 };
 
 // Views the string or string_view body inside a Response.  Should only be called when the body
@@ -135,17 +138,8 @@ std::string compute_hash(Func hasher, const T&... args) {
     return hasher({detail::to_hashable(args, b)...});
 }
 
-/// Computes a message hash using blake2b hash of various messages attributes.  This is the
-/// pre-HF19.3 version, which includes timestamp/expiry.  (TODO: delete after HF19.3).
-std::string computeMessageHash_old(
-        std::chrono::system_clock::time_point timestamp,
-        std::chrono::system_clock::time_point expiry,
-        const user_pubkey_t& pubkey,
-        namespace_id ns,
-        std::string_view data);
-
 /// Computes a message hash using blake2b hash of various messages attributes.
-std::string computeMessageHash(const user_pubkey_t& pubkey, namespace_id ns, std::string_view data);
+std::string computeMessageHash(const user_pubkey& pubkey, namespace_id ns, std::string_view data);
 
 struct OnionRequestMetadata {
     crypto::x25519_pubkey ephem_key;
@@ -157,10 +151,13 @@ struct OnionRequestMetadata {
 class RequestHandler {
 
     mnode::MasterNode& master_node_;
+    const mnode::Network& network_{master_node_.network()};
+    const mnode::Swarm& swarm_{master_node_.swarm()};
+    const mnode::Contacts& contacts_{master_node_.contacts()};
     const crypto::ChannelEncryption& channel_cipher_;
     const crypto::ed25519_seckey ed25519_sk_;
 
-    std::forward_list<std::future<void>> pending_proxy_requests_;
+    std::weak_ptr<http::Client> http_;
 
     // Wrap response `res` to an intermediate node
     Response wrap_proxy_response(
@@ -171,7 +168,7 @@ class RequestHandler {
             bool base64 = true) const;
 
     // Return the correct swarm for `pubKey`
-    Response handle_wrong_swarm(const user_pubkey_t& pubKey);
+    Response handle_wrong_swarm(const user_pubkey& pubKey);
 
     // ===== Session Client Requests =====
 
@@ -193,11 +190,16 @@ class RequestHandler {
             const crypto::ChannelEncryption& ce,
             crypto::ed25519_seckey ed_sk);
 
+    // Sets the http client needed to perform proxied onion requests.  This must be set up before
+    // incoming requests are accepted.
+    void set_http_client(std::weak_ptr<http::Client> client) { http_ = std::move(client); }
+
     // Handlers for parsed client requests
     void process_client_req(rpc::store&& req, std::function<void(Response)> cb);
     void process_client_req(rpc::retrieve&& req, std::function<void(Response)> cb);
     void process_client_req(rpc::get_swarm&& req, std::function<void(Response)> cb);
     void process_client_req(rpc::beldexd_request&& req, std::function<void(Response)> cb);
+    void process_client_req(rpc::active_nodes_bin&& req, std::function<void(Response)> cb);
     void process_client_req(rpc::info&&, std::function<void(Response)> cb);
     void process_client_req(rpc::delete_all&&, std::function<void(Response)> cb);
     void process_client_req(rpc::delete_msgs&&, std::function<void(Response)> cb);
@@ -208,11 +210,13 @@ class RequestHandler {
     void process_client_req(rpc::batch&&, std::function<void(Response)> cb);
     void process_client_req(rpc::sequence&&, std::function<void(Response)> cb);
     void process_client_req(rpc::ifelse&&, std::function<void(Response)> cb);
-    void process_client_req(rpc::revoke_subkey&& req, std::function<void(Response)> cb);
+    void process_client_req(rpc::revoke_subaccount&& req, std::function<void(Response)> cb);
+    void process_client_req(rpc::unrevoke_subaccount&& req, std::function<void(Response)> cb);
+    void process_client_req(rpc::revoked_subaccounts&& req, std::function<void(Response)> cb);
 
     struct rpc_handler {
-        std::function<client_request(std::variant<nlohmann::json, oxenc::bt_dict_consumer> params)>
-                load_req;
+        std::function<client_request(nlohmann::json&& params)> load_json;
+        std::function<client_request(oxenc::bt_dict_consumer&& params)> load_bt;
         std::function<void(RequestHandler&, nlohmann::json, std::function<void(Response)>)>
                 http_json;
         std::function<void(
@@ -220,7 +224,7 @@ class RequestHandler {
                 std::string_view params,
                 bool recurse,
                 std::function<void(Response)>)>
-                omq;
+                mq;
     };
 
     using rpc_map = std::unordered_map<std::string_view, rpc_handler>;
@@ -237,17 +241,6 @@ class RequestHandler {
     void process_client_req(
             std::string_view method, nlohmann::json params, std::function<void(Response)> cb);
 
-    // Processes a swarm test request; if it succeeds the callback is immediately invoked,
-    // otherwise the test is scheduled for retries for some time until it succeeds, fails, or
-    // times out, at which point the callback is invoked to return the result.
-    void process_storage_test_req(
-            uint64_t height,
-            crypto::legacy_pubkey tester,
-            std::string msg_hash_hex,
-            std::function<void(
-                    mnode::MessageTestStatus, std::string, std::chrono::steady_clock::duration)>
-                    callback);
-
     // Forwards a request to beldexd RPC. `params` should contain:
     // - endpoint -- the name of the rpc endpoint; currently allowed are `bns_resolve` and
     // `get_master_nodes`.
@@ -259,7 +252,7 @@ class RequestHandler {
     // a failure response with a body of the error string.
     void process_beldexd_request(const nlohmann::json& params, std::function<void(Response)> cb);
 
-    // Test only: retrieve all db entires
+    // Test only: retrieve all db entries
     Response process_retrieve_all();
 
     // The result will arrive asynchronously, so it needs a callback handler
@@ -272,4 +265,4 @@ class RequestHandler {
     void process_onion_req(ProcessCiphertextError&& res, OnionRequestMetadata&& data);
 };
 
-}  // namespace beldex::rpc
+}  // namespace beldexss::rpc

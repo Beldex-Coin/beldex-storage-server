@@ -11,16 +11,20 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="module")
 def omq():
     omq = OxenMQ()
-    omq.max_message_size = 10*1024*1024
+    omq.max_message_size = 10 * 1024 * 1024
     omq.start()
     return omq
 
 
 @pytest.fixture(scope="module")
 def bns(omq):
-    remote = omq.connect_remote(Address("curve://public.beldex.foundation:38161/80adaead94db3b0402a6057869bdbe63204a28e93589fd95a035480ed6c03b45"))
+    remote = omq.connect_remote(
+        Address(
+            "curve://public.loki.foundation:38161/80adaead94db3b0402a6057869bdbe63204a28e93589fd95a035480ed6c03b45"
+        )
+    )
     x = omq.request_future(remote, "rpc.get_master_nodes", b'{"active_only": true}').get()
-    assert(len(x) == 2 and x[0] == b'200')
+    assert len(x) == 2 and x[0] == b'200'
     return json.loads(x[1])
 
 
@@ -35,6 +39,7 @@ def random_mn(omq, bns):
 @pytest.fixture
 def sk():
     from nacl.signing import SigningKey
+
     return SigningKey.generate()
 
 

@@ -7,17 +7,17 @@
 #include <chrono>
 #include <string>
 
-using namespace beldex::mnode;
+using namespace beldexss::mnode;
 
 TEST_CASE("v1 serialization - basic values", "[serialization]") {
-    beldex::user_pubkey_t pub_key;
+    beldexss::user_pubkey pub_key;
     REQUIRE(pub_key.load("bd4368520005786b249bcd461d28f75e560ea794014eeb17fcf6003f37d876783e"s));
     const auto data = "da\x00ta"s;
     const auto hash = "hash\x00\x01\x02\x03"s;
     const std::chrono::system_clock::time_point timestamp{12'345'678ms};
     const auto expiry = timestamp + 3456s;
-    std::vector<beldex::message> msgs;
-    msgs.emplace_back(pub_key, hash, beldex::namespace_id::Default, timestamp, expiry, data);
+    std::vector<beldexss::message> msgs;
+    msgs.emplace_back(pub_key, hash, beldexss::namespace_id::Default, timestamp, expiry, data);
     auto serialized = serialize_messages(msgs.begin(), msgs.end(), 1);
     REQUIRE(serialized.size() == 1);
     const auto expected_serialized =
@@ -38,7 +38,7 @@ TEST_CASE("v1 serialization - basic values", "[serialization]") {
 
     const auto messages = deserialize_messages(batches[0]);
     CHECK(messages.size() == 2);
-    for (int i = 0; i < messages.size(); ++i) {
+    for (size_t i = 0; i < messages.size(); ++i) {
         CHECK(messages[i].pubkey == pub_key);
         CHECK(messages[i].data == data);
         CHECK(messages[i].hash == hash);
@@ -48,18 +48,18 @@ TEST_CASE("v1 serialization - basic values", "[serialization]") {
 }
 
 TEST_CASE("v1 serialization - batch serialization", "[serialization]") {
-    beldex::user_pubkey_t pub_key;
+    beldexss::user_pubkey pub_key;
     REQUIRE(pub_key.load("bd4368520005786b249bcd461d28f75e560ea794014eeb17fcf6003f37d876783e"s));
     std::string data(100000, 'x');
     const auto hash = "hash";
     const std::chrono::system_clock::time_point timestamp{1'622'576'077s};
     const auto ttl = 24h;
-    std::vector<beldex::message> msgs;
-    msgs.emplace_back(pub_key, hash, beldex::namespace_id::Default, timestamp, timestamp + ttl, data);
+    std::vector<beldexss::message> msgs;
+    msgs.emplace_back(pub_key, hash, beldexss::namespace_id::Default, timestamp, timestamp + ttl, data);
     auto serialized = serialize_messages(msgs.begin(), msgs.end(), 1);
     REQUIRE(serialized.size() == 1);
     auto first = serialized.front();
-    const size_t num_messages = (SERIALIZATION_BATCH_SIZE / (serialized.front().size() - 2));
+    const size_t num_messages = (SERIALIZATION_BATCH_SIZE / (serialized.front().size() - 2)) + 1;
     msgs = {num_messages, msgs.front()};
     serialized = serialize_messages(msgs.begin(), msgs.end(), 1);
     CHECK(serialized.size() == 1);

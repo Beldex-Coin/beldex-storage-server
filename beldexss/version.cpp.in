@@ -1,6 +1,6 @@
 #include "beldexss/version.h"
 
-namespace beldex {
+namespace beldexss {
 
 using namespace std::literals;
 

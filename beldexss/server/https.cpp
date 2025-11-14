@@ -1,15 +1,15 @@
 #include "https.h"
 
-#include <beldexss/utils/file.hpp>
 #include "utils.h"
 #include "omq.h"
 #include <beldexss/logging/beldex_logger.h>
 #include <beldexss/rpc/request_handler.h>
 #include <beldexss/mnode/master_node.h>
+#include <iterator>
 #include <beldexss/utils/string_utils.hpp>
-#include <beldexss/utils/file.hpp>
 
 #include <chrono>
+#include <fmt/ranges.h>
 #include <nlohmann/json.hpp>
 #include <oxenc/base64.h>
 #include <oxenc/endian.h>
@@ -19,7 +19,7 @@
 
 #include <uWebSockets/App.h>
 
-namespace beldex::server {
+namespace beldexss::server {
 
 using namespace oxen;
 static auto logcat = log::Cat("server");
@@ -163,14 +163,13 @@ HTTPS::HTTPS(
                                 });
 
                     if (listening.empty() || required_bind_failed) {
-                        std::ostringstream error;
-                        error << "RPC HTTP server failed to bind; ";
-                        if (listening.empty())
-                            error << "no valid bind address(es) given; ";
-                        error << "tried to bind to:";
+                        std::string error =
+                                "RPC HTTP server failed to bind{}; tried to bind to: "_format(
+                                        listening.empty() ? "; no valid bind address(es) given"
+                                                          : "");
                         for (const auto& [addr, port, required] : bind)
-                            error << ' ' << addr << ':' << port;
-                        throw std::runtime_error{error.str()};
+                            fmt::format_to(std::back_inserter(error), " {}:{}", addr, port);
+                        throw std::runtime_error{error};
                     }
                 } catch (...) {
                     startup_success.set_exception(std::current_exception());
@@ -287,65 +286,19 @@ namespace {
     }
 
     std::string get_remote_address(HttpResponse& res) {
-        std::ostringstream result;
-        bool first = true;
-        auto addr = res.getRemoteAddress();
-        if (addr.size() == 4) {  // IPv4, packed into bytes
-            for (auto c : addr) {
-                if (first)
-                    first = false;
-                else
-                    result << '.';
-                result << +static_cast<uint8_t>(c);
-            }
+        // Either 4 (ipv4) or 16 (ipv6) bytes in network order:
+        auto addr_sv = res.getRemoteAddress();
+        // uWS offers a getRemoteAddressAsText(), but it doesn't format IPv6 addresses nicely so
+        // prefer libquic's inet_ntop-based formatting:
+        std::span addr{reinterpret_cast<const uint8_t*>(addr_sv.data()), addr_sv.size()};
+        std::string result;
+        if (addr.size() == 4) {
+            result = oxen::quic::ipv4{addr.first<4>()}.to_string();
         } else if (addr.size() == 16) {
-            // IPv6, packed into bytes.  Interpret as a series of 8 big-endian shorts and
-            // convert to hex, joined with :.  But we also want to drop leading insignificant
-            // 0's (i.e. '34f' instead of '034f'), and we want to collapse the longest sequence
-            // of 0's that we come across (so that, for example, localhost becomes `::1` instead
-            // of `0:0:0:0:0:0:0:1`).
-            std::array<uint16_t, 8> a;
-            std::memcpy(a.data(), addr.data(), 16);
-            for (auto& x : a)
-                oxenc::big_to_host_inplace(x);
-
-            size_t zero_start = 0, zero_end = 0;
-            for (size_t i = 0, start = 0, end = 0; i < a.size(); i++) {
-                if (a[i] != 0)
-                    continue;
-                if (end != i)  // This zero value starts a new zero sequence
-                    start = i;
-                end = i + 1;
-                if (end - start > zero_end - zero_start) {
-                    zero_end = end;
-                    zero_start = start;
-                }
-            }
-            result << '[' << std::hex;
-            for (size_t i = 0; i < a.size(); i++) {
-                if (i >= zero_start && i < zero_end) {
-                    if (i == zero_start)
-                        result << "::";
-                    continue;
-                }
-                if (i > 0 && i != zero_end)
-                    result << ':';
-                result << a[i];
-            }
-            result << ']';
+            result = "[{}]"_format(oxen::quic::ipv6{addr.first<16>()}.to_string());
         } else
-            result << "{unknown:" << oxenc::to_hex(addr) << "}";
-        return result.str();
-    }
-
-    // Extracts a x25519 pubkey from a hex string. Warns and throws on invalid input.
-    crypto::x25519_pubkey extract_x25519_from_hex(std::string_view hex) {
-        try {
-            return crypto::x25519_pubkey::from_hex(hex);
-        } catch (const std::exception& e) {
-            log::warning(logcat, "Failed to decode ephemeral key in onion request: {}", e.what());
-            throw;
-        }
+            result = "{{unknown:{}}}"_format(oxenc::to_hex(addr));
+        return result;
     }
 
     // Sets up a request handler that processes the initial incoming requests, sets up the
@@ -424,7 +377,7 @@ void HTTPS::create_endpoints(uWS::SSLApp& https) {
         master_node_.update_last_ping(mnode::ReachType::HTTPS);
         rpc::Response resp{http::OK};
         resp.headers.emplace_back(
-                http::MNODE_PUBKEY_HEADER, oxenc::to_base64(legacy_keys_.first.view()));
+                http::MNODE_PUBKEY_HEADER, oxenc::to_base64(legacy_keys_.pub.view()));
         queue_response_internal(*this, *res, std::move(resp));
     });
 
@@ -570,7 +523,7 @@ void HTTPS::process_onion_req_v2(HttpRequest& req, HttpResponse& res) {
                                 auto [ciphertext, json_req] =
                                         rpc::parse_combined_payload(data->request.body);
 
-                                onion.ephem_key = extract_x25519_from_hex(
+                                onion.ephem_key = rpc::extract_x25519_from_hex(
                                         json_req.at("ephemeral_key").get_ref<const std::string&>());
 
                                 if (auto it = json_req.find("enc_type"); it != json_req.end())
@@ -635,4 +588,4 @@ HTTPS::~HTTPS() {
     shutdown(true);
 }
 
-}  // namespace beldex::server
+}  // namespace beldexss::server

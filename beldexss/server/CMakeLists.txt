@@ -1,20 +1,25 @@
 
 add_library(server STATIC
     https.cpp
+    mqbase.cpp
     omq.cpp
     omq_logger.cpp
-    omq_monitor.cpp
-    server_certificates.cpp)
+    quic.cpp
+    server_certificates.cpp
+    utils.cpp)
 
 find_package(Threads)
 
 target_link_libraries(server
     PUBLIC
     uWebSockets
+    quic    # public so it gets to /daemon
     PRIVATE
     common
     utils
     rpc
+    quic
+    mnode
     logging
     OpenSSL::SSL
     oxenmq::oxenmq

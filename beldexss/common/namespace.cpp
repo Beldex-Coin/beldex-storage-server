@@ -3,7 +3,7 @@
 #include <cassert>
 #include <charconv>
 
-namespace beldex {
+namespace beldexss {
 
 std::string to_string(namespace_id ns) {
     char buf[6];
@@ -13,4 +13,4 @@ std::string to_string(namespace_id ns) {
     return std::string(std::begin(buf), ptr - std::begin(buf));
 }
 
-}  // namespace beldex
+}  // namespace beldexss

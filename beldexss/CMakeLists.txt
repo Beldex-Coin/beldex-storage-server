@@ -15,13 +15,13 @@ endif()
 add_subdirectory(common)
 add_subdirectory(crypto)
 add_subdirectory(daemon)
+add_subdirectory(http)
 add_subdirectory(logging)
 add_subdirectory(rpc)
 add_subdirectory(server)
 add_subdirectory(mnode)
 add_subdirectory(storage)
 add_subdirectory(utils)
-
 
 # Build Info
 if(BELDEXSS_VERSIONTAG)

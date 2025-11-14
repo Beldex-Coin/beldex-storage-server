@@ -7,12 +7,10 @@
 #include <charconv>
 #include <chrono>
 #include <cstring>
-#include <iterator>
-#include <sstream>
 #include <string_view>
 #include <vector>
 
-namespace beldex::util {
+namespace beldexss::util {
 
 using namespace std::literals;
 
@@ -66,24 +64,6 @@ std::vector<std::string_view> split(
 std::vector<std::string_view> split_any(
         std::string_view str, std::string_view delims, bool trim = false);
 
-/// Joins [begin, end) with a delimiter and returns the resulting string.  Elements can be
-/// anything that can be sent to an ostream via `<<`.
-template <typename It>
-std::string join(std::string_view delimiter, It begin, It end) {
-    std::ostringstream o;
-    if (begin != end)
-        o << *begin++;
-    while (begin != end)
-        o << delimiter << *begin++;
-    return o.str();
-}
-
-/// Wrapper around the above that takes a container and passes c.begin(), c.end() to the above.
-template <typename Container>
-std::string join(std::string_view delimiter, const Container& c) {
-    return join(delimiter, c.begin(), c.end());
-}
-
 /// Simple version of whitespace trimming: mutates the given string view to remove leading
 /// space, \t, \r, \n.  (More exotic and locale-dependent whitespace is not removed).
 void trim(std::string_view& s);
@@ -100,16 +80,6 @@ bool parse_int(const std::string_view str, T& value, int base = 10) {
         return false;
     value = tmp;
     return true;
-}
-
-/// Converts an integer value into a string via std::to_chars (i.e. without locale).
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-std::string int_to_string(const T& value, int base = 10) {
-    char buf[8 * sizeof(T) + std::is_signed_v<T>];  // maximum possible size with smallest
-                                                    // possible base (2)
-    auto [p, ec] = std::to_chars(std::begin(buf), std::end(buf), value, base);
-    assert(ec == std::errc{});  // Our buffer should be big enough for anything
-    return {buf, p};
 }
 
 /// Returns a string_view that views the data of the given object; this is not something you
@@ -148,6 +118,14 @@ T make_from_guts(std::basic_string_view<std::byte> s) {
     return make_from_guts<T>(std::string_view{reinterpret_cast<const char*>(s.data()), s.size()});
 }
 
+inline std::string_view to_sv(std::u8string_view u8s) {
+    return std::string_view{reinterpret_cast<const char*>(u8s.data()), u8s.size()};
+}
+
+inline std::string to_str(std::u8string_view u8s) {
+    return std::string{to_sv(u8s)};
+}
+
 std::string lowercase_ascii_string(std::string_view src);
 
 /// Converts a duration into a human friendlier string, such as "3d7h47m12s" or "347µs"
@@ -166,4 +144,8 @@ std::string_view find_prefixed_value(It begin, It end, std::string_view prefix) 
     return std::string_view{*it}.substr(prefix.size());
 }
 
-}  // namespace beldex::util
+// Returns an SI-prefixed string representing a number of bytes with 3 significant digits, such as
+// "123 MB" or "3.24 GB".
+std::string get_human_readable_bytes(uint64_t bytes);
+
+}  // namespace beldexss::util

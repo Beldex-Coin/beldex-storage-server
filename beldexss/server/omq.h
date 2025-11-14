@@ -1,80 +1,42 @@
 #pragma once
+#include "mqbase.h"
+#include "../crypto/keys.h"
 
-#include <cstdint>
 #include <memory>
-#include <shared_mutex>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 #include <nlohmann/json_fwd.hpp>
 #include <oxenc/bt_serialize.h>
 #include <oxenmq/oxenmq.h>
 
-#include "../common/message.h"
-#include "../mnode/sn_record.h"
+namespace beldexss {
 
-namespace beldex::rpc {
+namespace rpc {
 class RequestHandler;
 class RateLimiter;
 struct OnionRequestMetadata;
 struct Response;
-}  // namespace beldex::rpc
+}  // namespace rpc
 
-namespace beldex::mnode {
+namespace mnode {
 class MasterNode;
-}
+}  // namespace mnode
 
-namespace beldex::server {
+} // namespace beldexss 
+namespace beldexss::server {
 
-using namespace std::literals;
-
-oxenc::bt_value json_to_bt(nlohmann::json j);
-
-nlohmann::json bt_to_json(oxenc::bt_dict_consumer d);
-nlohmann::json bt_to_json(oxenc::bt_list_consumer l);
-
-struct MonitorData {
-    static constexpr auto MONITOR_EXPIRY_TIME = 65min;
-
-    std::chrono::steady_clock::time_point expiry;  // When this notify reg expires
-    std::vector<namespace_id> namespaces;          // sorted namespace_ids
-    oxenmq::ConnectionID push_conn;                // ConnectionID to push notifications to
-    bool want_data;                                // true if the subscriber wants msg data
-
-    MonitorData(
-            std::vector<namespace_id> namespaces,
-            oxenmq::ConnectionID conn,
-            bool data,
-            std::chrono::seconds ttl = MONITOR_EXPIRY_TIME) :
-            expiry{std::chrono::steady_clock::now() + ttl},
-            namespaces{std::move(namespaces)},
-            push_conn{std::move(conn)},
-            want_data{data} {}
-
-    void reset_expiry(std::chrono::seconds ttl = MONITOR_EXPIRY_TIME) {
-        expiry = std::chrono::steady_clock::now() + ttl;
-    }
-};
-
-class OMQ {
+class OMQ : public MQBase {
     oxenmq::OxenMQ omq_;
     oxenmq::ConnectionID beldexd_conn_;
 
-    // Has information about current MNs
-    mnode::MasterNode* master_node_ = nullptr;
-
-    rpc::RequestHandler* request_handler_ = nullptr;
-
-    rpc::RateLimiter* rate_limiter_ = nullptr;
-
-    // Tracks accounts we are monitoring for OMQ push notification messages
-    std::unordered_multimap<std::string, MonitorData> monitoring_;
-    mutable std::shared_mutex monitoring_mutex_;
-
     // Get node's address
     std::string peer_lookup(std::string_view pubkey_bin) const;
+
+    // Invoked by fellow swarm members to ask if we are ready to transfer data (via mn.data).  Once
+    // this returns OK, one or more mn.data follow with the actual data transfer.
+    void handle_mn_data_ready(oxenmq::Message& message);
 
     // Handle Session data coming from peer MN
     void handle_mn_data(oxenmq::Message& message);
@@ -90,9 +52,6 @@ class OMQ {
 
     // mn.ping - sent by MNs to ping each other.
     void handle_ping(oxenmq::Message& message);
-
-    // mn.storage_test
-    void handle_storage_test(oxenmq::Message& message);
 
     /// storage.(whatever) -- client request handling.  These reply with [BODY] on success or
     /// [CODE, BODY] on failure (where BODY typically is some sort of error message).
@@ -130,9 +89,10 @@ class OMQ {
     ///   - P -- an ed25519 pubkey underlying a session ID, in bytes (32 bytes).  The account
     ///     will be derived by converting to an x25519 pubkey and prepending the 0x05 byte.  The
     ///     signature uses *this* key, not the derived x25519 key.
-    /// - S -- (optional) a 32-byte authentication subkey tag to use for authentication.  The
-    ///   signature with such a subkey tag uses a derived subkey (as described in the RPC endpoint
-    ///   documentation).
+    /// - S, T -- (optional) - subaccount signature (S) and token (T) for subaccount authentication:
+    ///   T is the 36-byte subaccount token, and S is the 64-byte main account signature authorizing
+    ///   that token.  See the subaccount description in the "store" RPC endpoint documentation for
+    ///   more details.  Both keys must be given when doing subaccount auth, neither key otherwise.
     /// - n -- list of namespace ids to monitor for new messages; the ids must be valid (i.e. -32768
     ///   through 32767), must be sorted in numeric order, and must contain no duplicates.
     /// - d -- set to 1 if the caller wants the full message data, 0 (or omitted) will omit the data
@@ -143,7 +103,7 @@ class OMQ {
     /// - s -- the signature associated with this message.  This is an Ed25519 signature of the
     ///   value:
     ///       ( "MONITOR" || ACCOUNT || TS || D || NS[0] || "," || ... || "," || NS[n] )
-    ///   signed by the account Ed25519 key or derived subkey (if using a subkey tag):
+    ///   signed by the account Ed25519 key or subaccount key (if using subaccount auth):
     ///   - ACCOUNT is the full account ID, expressed in hex (e.g. "0512345...").
     ///   - TS is the signature timestamp value, expressed as a base-10 string
     ///   - D is "0" or "1" depending on whether data is wanted (i.e. the "d" request parameter)
@@ -190,7 +150,7 @@ class OMQ {
     ///
     /// - The caller only receives one notification on the connection for a matching message from
     ///   any of the matching subscription requests on that same connection.
-    /// - All pubkey/subkey/ed25519 pubkeys that access the same account are treated as the same
+    /// - All pubkey/subaccount/ed25519 pubkeys that access the same account are treated as the same
     ///   subscription.
     /// - The data key (`~`) will be present in a notification if *any* subscription request for the
     ///   same account on the same connection requested data.  Same a flag only expires when the
@@ -219,10 +179,9 @@ class OMQ {
     void connect_beldexd(const oxenmq::address& beldexd_rpc);
 
   public:
-    OMQ(const mnode::mn_record& me,
-        const crypto::x25519_seckey& privkey,
+    OMQ(const crypto::x25519_keypair& keys,
         const std::vector<crypto::x25519_pubkey>& stats_access_keys_hex);
-
+    
     // Initialize oxenmq; return a future that completes once we have connected to and
     // initialized from beldexd.
     void init(
@@ -262,8 +221,9 @@ class OMQ {
     static std::pair<std::string_view, rpc::OnionRequestMetadata> decode_onion_data(
             std::string_view data);
 
-    // Called during message submission to send notifications to anyone subscribed to them.
-    void send_notifies(message msg);
+    void notify(std::vector<connection_id>&, std::string_view notification) override;
+
+    void reachability_test(std::shared_ptr<mnode::mn_test> test) override;
 };
 
-}  // namespace beldex::server
+}  // namespace beldexss::server

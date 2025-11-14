@@ -1,26 +1,15 @@
 #include "stats.h"
-#include <algorithm>
 #include <chrono>
-#include <iostream>
 
 #include <oxenmq/oxenmq.h>
-#include <unordered_map>
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
-all_stats_t::all_stats_t(oxenmq::OxenMQ& omq) {
+all_stats::all_stats(oxenmq::OxenMQ& omq) {
     omq.add_timer([this] { cleanup(); }, STATS_CLEANUP_INTERVAL);
 }
 
-static void cleanup_old(
-        std::deque<test_result>& tests, std::chrono::system_clock::time_point cutoff_time) {
-    while (!tests.empty() && tests.front().timestamp <= cutoff_time)
-        tests.pop_front();
-}
-
-static constexpr auto ROLLING_WINDOW = 120min;
-
-void all_stats_t::cleanup() {
+void all_stats::cleanup() {
     {
         // rotate historic period counters
         std::lock_guard lock{prev_stats_mutex};
@@ -35,18 +24,9 @@ void all_stats_t::cleanup() {
                         current_onion_requests.exchange(0)});
         last_rotate = std::chrono::steady_clock::now();
     }
-
-    {
-        // Clean up old peer report stats
-        std::lock_guard lock{peer_report_mutex};
-
-        const auto cutoff = std::chrono::system_clock::now() - ROLLING_WINDOW;
-        for (auto& [kv, stats] : peer_report_)
-            cleanup_old(stats.storage_tests, cutoff);
-    }
 }
 
-std::pair<std::chrono::steady_clock::duration, period_stats> all_stats_t::get_recent_requests()
+std::pair<std::chrono::steady_clock::duration, period_stats> all_stats::get_recent_requests()
         const {
     std::pair<std::chrono::steady_clock::duration, period_stats> result;
     auto& [window, stats] = result;
@@ -70,4 +50,4 @@ std::pair<std::chrono::steady_clock::duration, period_stats> all_stats_t::get_re
     return result;
 }
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

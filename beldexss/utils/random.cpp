@@ -1,6 +1,6 @@
 #include "random.hpp"
 
-namespace beldex::util {
+namespace beldexss::util {
 
 std::mt19937_64& rng() {
     static thread_local std::mt19937_64 generator{std::random_device{}()};
@@ -16,4 +16,4 @@ uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64
     return x / (secure_max / n);
 }
 
-}  // namespace beldex::util
+}  // namespace beldexss::util
