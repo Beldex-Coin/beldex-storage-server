@@ -1,9 +1,10 @@
 #pragma once
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <type_traits>
 
-namespace beldex {
+namespace beldexss {
 
 // Types can opt-in to being fmt-formattable by defining a `to_string()` const member function
 // that returns something string-like.  For scoped enums we instead look for a `to_string(Type
@@ -13,6 +14,9 @@ namespace beldex {
 // template <> inline constexpr bool to_string_formattable<MyType> = true;
 template <typename T>
 constexpr bool to_string_formattable = false;
+
+template <typename T>
+concept string_formattable = to_string_formattable<T>;
 
 #ifdef __cpp_lib_is_scoped_enum
 using std::is_scoped_enum;
@@ -29,19 +33,26 @@ template <typename T>
 constexpr bool is_scoped_enum_v = is_scoped_enum<T>::value;
 #endif
 
-}  // namespace beldex
+}  // namespace beldexss
 
 namespace fmt {
-template <typename T>
-struct formatter<T, char, std::enable_if_t<beldex::to_string_formattable<T>>>
-        : formatter<std::string_view> {
+
+template <beldexss::string_formattable T>
+struct formatter<T, char> : formatter<std::string_view> {
     template <typename FormatContext>
     auto format(const T& val, FormatContext& ctx) const {
-        if constexpr (beldex::is_scoped_enum_v<T>)
+        if constexpr (beldexss::is_scoped_enum_v<T>)
             return formatter<std::string_view>::format(to_string(val), ctx);
         else
             return formatter<std::string_view>::format(val.to_string(), ctx);
     }
+};
+
+// Make sure that fmt doesn't interpret our custom formattable types as range formattable, which
+// results in ambiguous overloads:
+template <beldexss::string_formattable T>
+struct is_range<T, char> {
+    static constexpr bool value = false;
 };
 
 }  // namespace fmt

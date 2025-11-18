@@ -34,6 +34,7 @@
 # Custom
 build
 deps
+__pycache__
 
 # Vscode settings
 .vscode
@@ -43,3 +44,6 @@ vendors/spdlog
 
 # Swapfiles
 **/*.swp
+
+# clangd cache
+.cache

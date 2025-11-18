@@ -6,11 +6,10 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 
 #include <beldexss/common/formattable.h>
 
-namespace beldex::crypto {
+namespace beldexss::crypto {
 
 using namespace std::literals;
 
@@ -31,28 +30,28 @@ struct alignas(size_t) key_base : std::array<unsigned char, KeyLength> {
     std::string_view view() const {
         return {reinterpret_cast<const char*>(this->data()), KeyLength};
     }
+    std::string str() const { return {reinterpret_cast<const char*>(this->data()), KeyLength}; }
     std::string hex() const { return detail::to_hex(this->data(), KeyLength); }
     explicit operator bool() const { return *this != detail::null_bytes<KeyLength>; }
 
     // Loads the key from a hex string; throws if the hex is the wrong size or not hex.
-    static Derived from_hex(std::string_view hex) {
+    [[nodiscard]] static Derived from_hex(std::string_view hex) {
         Derived d;
-        detail::load_from_hex(d.data(), d.size(), hex);
+        d.load_from_hex(hex);
         return d;
     }
-    // Same as above, but returns nullopt if invalid instead of throwing
-    static std::optional<Derived> maybe_from_hex(std::string_view hex) {
-        try {
-            return from_hex(hex);
-        } catch (...) {
-        }
-        return std::nullopt;
+    void load_from_hex(std::string_view hex) {
+        detail::load_from_hex(this->data(), this->size(), hex);
     }
+
     // Loads the key from a byte string; throws if the wrong size.
-    static Derived from_bytes(std::string_view bytes) {
+    [[nodiscard]] static Derived from_bytes(std::string_view bytes) {
         Derived d;
-        detail::load_from_bytes(d.data(), d.size(), bytes);
+        d.load_from_bytes(bytes);
         return d;
+    }
+    void load_from_bytes(std::string_view bytes) {
+        detail::load_from_bytes(this->data(), this->size(), bytes);
     }
 };
 
@@ -82,9 +81,29 @@ struct x25519_seckey : seckey_base<x25519_seckey, 32> {
     x25519_pubkey pubkey() const;
 };
 
-using legacy_keypair = std::pair<legacy_pubkey, legacy_seckey>;
-using ed25519_keypair = std::pair<ed25519_pubkey, ed25519_seckey>;
-using x25519_keypair = std::pair<x25519_pubkey, x25519_seckey>;
+template <typename Pubkey, typename Seckey>
+struct keypair {
+    Pubkey pub;
+    Seckey sec;
+
+    // Populates the keypair by loading from a secret value then computing the pubkey from the
+    // secret.
+    [[nodiscard]] static keypair from_secret_hex(std::string_view hex) {
+        keypair k;
+        k.sec.load_from_hex(hex);
+        k.pub = k.sec.pubkey();
+        return k;
+    }
+    [[nodiscard]] static keypair from_secret_bytes(std::string_view bytes) {
+        keypair k;
+        k.sec.load_from_bytes(bytes);
+        k.pub = k.sec.pubkey();
+        return k;
+    }
+};
+using legacy_keypair = keypair<legacy_pubkey, legacy_seckey>;
+using ed25519_keypair = keypair<ed25519_pubkey, ed25519_seckey>;
+using x25519_keypair = keypair<x25519_pubkey, x25519_seckey>;
 
 /// Parse a pubkey string value encoded in any of base32z, b64, hex, or raw bytes, based on the
 /// length of the value.  Returns a null pk (i.e. operator bool() returns false) and warns on
@@ -93,26 +112,26 @@ legacy_pubkey parse_legacy_pubkey(std::string_view pubkey_in);
 ed25519_pubkey parse_ed25519_pubkey(std::string_view pubkey_in);
 x25519_pubkey parse_x25519_pubkey(std::string_view pubkey_in);
 
-/// Computes the signature verification derived pubkey for a pubkey+subkey string.  Throws
-/// std::invalid_argument if the pubkey/subkey aren't valid.
-std::array<unsigned char, 32> subkey_verify_key(std::string_view pubkey, std::string_view subkey);
-std::array<unsigned char, 32> subkey_verify_key(
-        const unsigned char* pubkey, const unsigned char* subkey);
+struct mnode_keypairs {
+    legacy_keypair legacy;
+    ed25519_keypair ed25519;
+    x25519_keypair x25519;
+};
 
-}  // namespace beldex::crypto
+}  // namespace beldexss::crypto
 
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::legacy_pubkey> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::legacy_pubkey> = true;
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::ed25519_pubkey> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::ed25519_pubkey> = true;
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::x25519_pubkey> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::x25519_pubkey> = true;
 
 namespace std {
 
 template <typename Derived, size_t N>
-struct hash<beldex::crypto::pubkey_base<Derived, N>> {
-    size_t operator()(const beldex::crypto::pubkey_base<Derived, N>& pk) const {
+struct hash<beldexss::crypto::pubkey_base<Derived, N>> {
+    size_t operator()(const beldexss::crypto::pubkey_base<Derived, N>& pk) const {
         // pubkeys are already random enough to use the first bytes directly as a good (and
         // fast) hash value
         static_assert(alignof(decltype(pk)) >= alignof(size_t));
@@ -121,10 +140,10 @@ struct hash<beldex::crypto::pubkey_base<Derived, N>> {
 };
 
 template <>
-struct hash<beldex::crypto::legacy_pubkey> : hash<beldex::crypto::legacy_pubkey::PubKeyBase> {};
+struct hash<beldexss::crypto::legacy_pubkey> : hash<beldexss::crypto::legacy_pubkey::PubKeyBase> {};
 template <>
-struct hash<beldex::crypto::x25519_pubkey> : hash<beldex::crypto::x25519_pubkey::PubKeyBase> {};
+struct hash<beldexss::crypto::x25519_pubkey> : hash<beldexss::crypto::x25519_pubkey::PubKeyBase> {};
 template <>
-struct hash<beldex::crypto::ed25519_pubkey> : hash<beldex::crypto::ed25519_pubkey::PubKeyBase> {};
+struct hash<beldexss::crypto::ed25519_pubkey> : hash<beldexss::crypto::ed25519_pubkey::PubKeyBase> {};
 
 }  // namespace std

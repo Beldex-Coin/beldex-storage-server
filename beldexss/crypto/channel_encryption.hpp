@@ -6,7 +6,7 @@
 
 #include "keys.h"
 
-namespace beldex::crypto {
+namespace beldexss::crypto {
 
 enum class EncryptType {
     aes_cbc,
@@ -28,13 +28,11 @@ inline constexpr std::string_view to_string(EncryptType type) {
     return ""sv;
 }
 
-// Encryption/decription class for encryption/decrypting outgoing/incoming messages.
+// Encryption/decryption class for encryption/decrypting outgoing/incoming messages.
 class ChannelEncryption {
   public:
-    ChannelEncryption(x25519_seckey private_key, x25519_pubkey public_key, bool server = true) :
-            private_key_{std::move(private_key)},
-            public_key_{std::move(public_key)},
-            server_{server} {}
+    explicit ChannelEncryption(x25519_keypair keys, bool server = true) :
+            keys_{std::move(keys)}, server_{server} {}
 
     // Encrypts `plaintext` message using encryption `type`. `pubkey` is the recipients public
     // key. `reply` should be false for a client-to-mnode message, and true on a returning
@@ -65,12 +63,11 @@ class ChannelEncryption {
     std::string decrypt_xchacha20(std::string_view ciphertext, const x25519_pubkey& pubKey) const;
 
   private:
-    const x25519_seckey private_key_;
-    const x25519_pubkey public_key_;
-    bool server_;  // True if we are the server (i.e. the mnode).
+  const x25519_keypair keys_;
+  bool server_;  // True if we are the server (i.e. the mnode).
 };
 
-}  // namespace beldex::crypto
+}  // namespace beldexss::crypto
 
 template <>
-inline constexpr bool beldex::to_string_formattable<beldex::crypto::EncryptType> = true;
+inline constexpr bool beldexss::to_string_formattable<beldexss::crypto::EncryptType> = true;

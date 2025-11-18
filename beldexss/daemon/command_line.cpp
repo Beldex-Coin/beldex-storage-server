@@ -1,11 +1,12 @@
 #include "command_line.h"
 #include <beldexss/logging/beldex_logger.h>
 #include <beldexss/version.h>
+#include <beldexss/common/format.h>
+#include <beldexss/utils/string_utils.hpp>
 
 #include <CLI/CLI.hpp>
 #include <CLI/Error.hpp>
 #include <filesystem>
-#include <iostream>
 #include <optional>
 
 extern "C" {
@@ -18,7 +19,7 @@ extern "C" {
 #endif
 }
 
-namespace beldex::cli {
+namespace beldexss::cli {
 
 using namespace std::literals;
 
@@ -29,7 +30,7 @@ static std::optional<std::filesystem::path> get_home_dir() {
             home = pwd->pw_dir;
 
     if (home && strlen(home))
-        return std::filesystem::u8path(home);
+        return std::filesystem::path{(const char8_t*)home};
 
     return std::nullopt;
 }
@@ -118,11 +119,11 @@ parse_result parse_cli_args(int argc, char* argv[]) {
     if (testnet) {
         base_dir /= "testnet";
         options.https_port = 19099;
-        options.omq_port = 19098;
+        options.omq_quic_port = 19098;
     }
 
     options.data_dir = base_dir / "storage";
-    options.beldexd_omq_rpc = "ipc://" + (base_dir / "beldexd.sock").u8string();
+    options.beldexd_omq_rpc = "ipc://{}"_format(util::to_sv((base_dir / "beldexd.sock").u8string()));
     data_dir = base_dir / "storage";
 
     cli.add_option("--data-dir", options.data_dir, "Path in which to store persistent data")
@@ -130,7 +131,7 @@ parse_result parse_cli_args(int argc, char* argv[]) {
             ->capture_default_str();
     cli.set_config(
                "--config-file",
-               (options.data_dir / "storage-server.conf").u8string(),
+               util::to_str((options.data_dir / "storage-server.conf").u8string()),
                "Path to config file specifying additional command-line options")
             ->capture_default_str();
     cli.add_option(
@@ -142,18 +143,19 @@ parse_result parse_cli_args(int argc, char* argv[]) {
     cli.add_option(
                "--beldexd-rpc",
                options.beldexd_omq_rpc,
-               "OMQ RPC address on which beldexd is available; typically "
-               "ipc:///path/to/beldexd.sock or tcp://localhost:22025")
+               "OMQ RPC address on which oxend is available; typically ipc:///path/to/beldexd.sock")
             ->type_name("OMQ_URL")
             ->capture_default_str();
     cli.add_option(
                "--omq-port,--lmq-port",
-               options.omq_port,
-               "Public port to listen on for OxenMQ connections")
+               options.omq_quic_port,
+               "Public port to listen on for OxenMQ (TCP) and QUIC (UDP) connections")
             ->capture_default_str()
             ->type_name("PORT");
     cli.add_option(
-               "--https-port", options.https_port, "Public port to listen on for HTTPS connections")
+               "--https-port",
+               options.https_port,
+               "Public port to listen on for HTTPS (TCP) connections")
             ->capture_default_str()
             ->type_name("PORT");
     cli.add_option(
@@ -186,7 +188,7 @@ parse_result parse_cli_args(int argc, char* argv[]) {
                "One or more public keys (x25519) that will be granted access to the "
                "`get_stats` omq endpoint")
             ->type_name("PUBKEY");
-    cli.set_version_flag("--version,-v", std::string{beldex::STORAGE_SERVER_VERSION_INFO});
+    cli.set_version_flag("--version,-v", std::string{beldexss::STORAGE_SERVER_VERSION_INFO});
 
     // Deprecated options, put in the "" group to hide them:
     // Old versions had a janky interface where some options were as above, but for some reason
@@ -203,4 +205,4 @@ parse_result parse_cli_args(int argc, char* argv[]) {
     return options;
 }
 
-}  // namespace beldex::cli
+}  // namespace beldexss::cli

@@ -1,18 +1,18 @@
 #pragma once
 
-#include "sn_record.h"
-
 #include <atomic>
 #include <chrono>
 #include <deque>
 #include <mutex>
 #include <unordered_map>
 
+#include "../crypto/keys.h"
+
 namespace oxenmq {
 class OxenMQ;
 }
 
-namespace beldex::mnode {
+namespace beldexss::mnode {
 
 using namespace std::literals;
 
@@ -42,14 +42,12 @@ inline constexpr const char* to_str(ResultType result) {
 }
 
 // Stats per peer
-struct peer_stats_t {
+struct peer_stats {
     // how many times a single request failed
     uint64_t requests_failed = 0;
     // how many times a series of push requests failed
     // causing this node to give up re-transmitting
     uint64_t pushes_failed = 0;
-
-    std::deque<test_result> storage_tests;
 };
 
 struct period_stats {
@@ -57,7 +55,7 @@ struct period_stats {
              onion_requests = 0;
 };
 
-class all_stats_t {
+class all_stats {
     // ===== This node's stats =====
     std::atomic<uint64_t> total_client_store_requests{0}, current_client_store_requests{0},
             total_client_retrieve_requests{0}, current_client_retrieve_requests{0},
@@ -73,14 +71,14 @@ class all_stats_t {
     mutable std::mutex prev_stats_mutex;
 
     // stats per every peer in our swarm (including former peers)
-    std::unordered_map<crypto::legacy_pubkey, peer_stats_t> peer_report_;
+    std::unordered_map<crypto::legacy_pubkey, peer_stats> peer_report_;
     mutable std::mutex peer_report_mutex;
 
     // remove old test entries and reset counters, update reset time
     void cleanup();
 
   public:
-    explicit all_stats_t(oxenmq::OxenMQ& omq);
+    explicit all_stats(oxenmq::OxenMQ& omq);
 
     // Returns the number of failed requests for the given pubkey over the last ROLLING_WINDOW
     void record_request_failed(const crypto::legacy_pubkey& mn) {
@@ -94,14 +92,8 @@ class all_stats_t {
         peer_report_[mn].pushes_failed++;
     }
 
-    // Records a storage test result for the given peer
-    void record_storage_test_result(const crypto::legacy_pubkey& mn, ResultType result) {
-        std::lock_guard lock{peer_report_mutex};
-        peer_report_[mn].storage_tests.push_back({std::chrono::system_clock::now(), result});
-    }
-
     // Returns a copy of the current peer report
-    std::unordered_map<crypto::legacy_pubkey, peer_stats_t> peer_report() const {
+    std::unordered_map<crypto::legacy_pubkey, peer_stats> peer_report() const {
         std::lock_guard lock{peer_report_mutex};
         return peer_report_;
     }
@@ -134,4 +126,4 @@ class all_stats_t {
     std::pair<std::chrono::steady_clock::duration, period_stats> get_recent_requests() const;
 };
 
-}  // namespace beldex::mnode
+}  // namespace beldexss::mnode

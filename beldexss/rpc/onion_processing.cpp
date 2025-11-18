@@ -9,7 +9,7 @@
 
 using nlohmann::json;
 
-namespace beldex::rpc {
+namespace beldexss::rpc {
 
 using namespace oxen;
 static auto logcat = log::Cat("rpc");
@@ -163,23 +163,8 @@ CiphertextPlusJson parse_combined_payload(std::string_view payload) {
     return result;
 }
 
-std::ostream& operator<<(std::ostream& os, const FinalDestinationInfo& d) {
-    return os << fmt::format("[\"body\": {}]", d.body);
-}
-
 bool operator==(const FinalDestinationInfo& lhs, const FinalDestinationInfo& rhs) {
     return lhs.body == rhs.body;
-}
-
-std::ostream& operator<<(std::ostream& os, const RelayToServerInfo& d) {
-    return os << fmt::format(
-                   "[\"protocol\": {}, \"host\": {}, \"port\": {}, "
-                   "\"target\": {}, \"payload\": {}]",
-                   d.protocol,
-                   d.host,
-                   d.port,
-                   d.target,
-                   d.payload);
 }
 
 bool operator==(const RelayToServerInfo& lhs, const RelayToServerInfo& rhs) {
@@ -187,18 +172,18 @@ bool operator==(const RelayToServerInfo& lhs, const RelayToServerInfo& rhs) {
            (lhs.target == rhs.target) && (lhs.payload == rhs.payload);
 }
 
-std::ostream& operator<<(std::ostream& os, const RelayToNodeInfo& d) {
-    return os << fmt::format(
-                   R"("["ciphertext": {}, "ephemeral_key": {}, "enc_type": {}, "next_node": {}])",
-                   d.ciphertext,
-                   d.ephemeral_key,
-                   d.enc_type,
-                   d.next_node);
-}
-
 bool operator==(const RelayToNodeInfo& a, const RelayToNodeInfo& b) {
     return std::tie(a.ciphertext, a.ephemeral_key, a.enc_type, a.next_node) ==
            std::tie(b.ciphertext, b.ephemeral_key, b.enc_type, b.next_node);
 }
 
-}  // namespace beldex::rpc
+crypto::x25519_pubkey extract_x25519_from_hex(std::string_view hex) {
+    try {
+        return crypto::x25519_pubkey::from_hex(hex);
+    } catch (const std::exception& e) {
+        log::warning(logcat, "Failed to decode ephemeral key in onion request: {}", e.what());
+        throw;
+    }
+}
+
+}  // namespace beldexss::rpc

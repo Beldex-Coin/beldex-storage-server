@@ -1,67 +1,78 @@
 #include "omq.h"
+#include "omq_logger.h"
 
 #include <beldexss/crypto/channel_encryption.hpp>
 #include <oxenmq/auth.h>
+#include <oxenmq/connections.h>
 #include <beldexss/crypto/keys.h>
 #include <beldexss/logging/beldex_logger.h>
-#include "utils.h"
 #include <beldexss/rpc/rate_limiter.h>
 #include <beldexss/rpc/request_handler.h>
-#include "omq_logger.h"
+#include <beldexss/mnode/contacts.h>
 #include <beldexss/mnode/master_node.h>
+#include <beldexss/mnode/sn_test.h>
 #include <beldexss/utils/string_utils.hpp>
 
-#include <chrono>
-#include <exception>
-#include <nlohmann/json.hpp>
 #include <oxenc/base64.h>
 #include <oxenc/bt_serialize.h>
 #include <oxenc/hex.h>
 #include <oxenc/bt_producer.h>
-#include <fmt/std.h>
+#include <oxen/quic/format.hpp>
 #include <sodium/crypto_sign.h>
 
+#include <chrono>
+#include <exception>
 #include <optional>
 #include <stdexcept>
-#include <type_traits>
 #include <variant>
 
-namespace beldex::server {
+namespace beldexss::server {
 
 using namespace oxen;
 static auto logcat = log::Cat("server");
 
 std::string OMQ::peer_lookup(std::string_view pubkey_bin) const {
-    log::trace(logcat, "[LMQ] Peer Lookup");
+    log::trace(logcat, "[OMQ] Peer Lookup");
 
     if (pubkey_bin.size() != sizeof(crypto::x25519_pubkey))
         return "";
     crypto::x25519_pubkey pubkey;
     std::memcpy(pubkey.data(), pubkey_bin.data(), sizeof(crypto::x25519_pubkey));
 
-    if (auto mn = master_node_->find_node(pubkey))
-        return fmt::format("tcp://{}:{}", mn->ip, mn->omq_port);
+    if (auto mn = master_node_->contacts().find(pubkey); mn && *mn)
+        return fmt::format("tcp://{}:{}", mn->ip, mn->omq_quic_port);
 
-    log::debug(logcat, "[LMQ] peer node not found via x25519 pubkey {}!", pubkey);
+    log::debug(logcat, "[OMQ] peer node not found via x25519 pubkey {}!", pubkey);
     return "";
 }
 
+void OMQ::handle_mn_data_ready(oxenmq::Message& message) {
+    log::debug(logcat, "[OMQ] handle mn.data_ready from: {}", message.conn.to_string());
+
+    auto& xpk_str = message.conn.pubkey();
+    if (xpk_str.size() != sizeof(crypto::x25519_pubkey))
+        return message.send_reply("Remote not recognized as MN");
+
+    crypto::x25519_pubkey xpk;
+    std::memcpy(xpk.data(), xpk_str.data(), sizeof(crypto::x25519_pubkey));
+    if (!master_node_->is_swarm_peer(xpk))
+        return message.send_reply("Swarm mismatch");
+
+    message.send_reply("OK");
+}
+
 void OMQ::handle_mn_data(oxenmq::Message& message) {
-    log::debug(logcat, "[LMQ] handle_mn_data");
-    log::debug(logcat, "[LMQ]   thread id: {}", std::this_thread::get_id());
-    log::debug(logcat, "[LMQ]   from: {}", oxenc::to_hex(message.conn.pubkey()));
+    log::debug(logcat, "[OMQ] handle_mn_data from: {}", message.conn.to_string());
 
-    std::stringstream ss;
-
-    // We are only expecting a single part message, so consider removing this
-    for (auto& part : message.data) {
-        ss << part;
+    if (message.data.empty()) {
+        log::warning(logcat, "Received empty data push from {}", message.remote);
+        return;
     }
 
-    // TODO: proces push batch should move to "Request handler"
-    master_node_->process_push_batch(ss.str());
+    // TODO: process push batch should move to "Request handler"
+    master_node_->process_push_batch(message.data[0], message.conn.to_string());
 
-    log::debug(logcat, "[LMQ] send reply");
+    log::debug(logcat, "[OMQ] send reply");
 
     // TODO: Investigate if the above could fail and whether we should report
     // that to the sending MN
@@ -72,94 +83,6 @@ void OMQ::handle_ping(oxenmq::Message& message) {
     log::debug(logcat, "Remote pinged me");
     master_node_->update_last_ping(mnode::ReachType::OMQ);
     message.send_reply("pong");
-}
-
-void OMQ::handle_storage_test(oxenmq::Message& message) {
-    if (message.conn.pubkey().size() != 32) {
-        // This shouldn't happen as this endpoint should have remote-MN-only permissions, so be
-        // noisy
-        log::error(
-                logcat,
-                "bug: invalid mn.storage_test omq request from {} with no pubkey",
-                message.remote);
-        return message.send_reply("invalid parameters");
-    } else if (message.data.size() < 2) {
-        log::warning(
-                logcat,
-                "invalid mn.storage_test omq request from {}: not enough data parts; expected 2, "
-                "received {}",
-                message.remote,
-                message.data.size());
-        return message.send_reply("invalid parameters");
-    }
-    crypto::legacy_pubkey tester_pk;
-    if (auto node = master_node_->find_node(
-                crypto::x25519_pubkey::from_bytes(message.conn.pubkey()))) {
-        tester_pk = node->pubkey_legacy;
-        log::debug(
-                logcat, "incoming mn.storage_test request from {}@{}", tester_pk, message.remote);
-    } else {
-        log::warning(
-                logcat, "invalid mn.storage_test omq request from {}: sender is not an active MN");
-        return message.send_reply("invalid pubkey");
-    }
-
-    uint64_t height;
-    if (!util::parse_int(message.data[0], height) || !height) {
-        log::warning(
-                logcat,
-                "invalid mn.storage_test omq request from {}@{}: '{}' is not a valid height",
-                tester_pk,
-                message.remote,
-                height);
-        return message.send_reply("invalid height");
-    }
-    std::string msg_hash;
-    if (message.data[1].size() == 64)
-        msg_hash = oxenc::to_hex(message.data[1]);
-    else if (message.data[1].size() == 32) {
-        msg_hash = oxenc::to_base64(message.data[1]);
-        assert(msg_hash.back() == '=');
-        msg_hash.pop_back();
-    } else {
-        log::warning(
-                logcat,
-                "invalid mn.storage_test omq request from {}@{}: message hash is {} bytes, "
-                "expected 64 or 32",
-                tester_pk,
-                message.remote,
-                message.data[1].size());
-        return message.send_reply("invalid msg hash");
-    }
-
-    request_handler_->process_storage_test_req(
-            height,
-            tester_pk,
-            msg_hash,
-            [reply = message.send_later()](
-                    mnode::MessageTestStatus status,
-                    std::string answer,
-                    std::chrono::steady_clock::duration elapsed) {
-                switch (status) {
-                    case mnode::MessageTestStatus::SUCCESS:
-                        log::debug(
-                                logcat,
-                                "Storage test success after {}",
-                                util::friendly_duration(elapsed));
-                        reply.reply("OK", answer);
-                        return;
-                    case mnode::MessageTestStatus::WRONG_REQ: reply.reply("wrong request"); return;
-                    case mnode::MessageTestStatus::RETRY:
-                        [[fallthrough]];  // If we're getting called then a retry ran out of time
-                    case mnode::MessageTestStatus::ERROR:
-                        // Promote this to `error` once we enforce storage testing
-                        log::debug(
-                                logcat,
-                                "Failed storage test, tried for {}",
-                                util::friendly_duration(elapsed));
-                        reply.reply("other");
-                }
-            });
 }
 
 void OMQ::handle_onion_request(
@@ -192,7 +115,7 @@ void OMQ::handle_onion_request(oxenmq::Message& message) {
         data = decode_onion_data(message.data[0]);
     } catch (const std::exception& e) {
         auto msg = "Invalid internal onion request: "s + e.what();
-        log::error(logcat, msg);
+        log::error(logcat, "{}", msg);
         message.send_reply(std::to_string(http::BAD_REQUEST.first), msg);
         return;
     }
@@ -202,85 +125,16 @@ void OMQ::handle_onion_request(oxenmq::Message& message) {
 
 void OMQ::handle_get_stats(oxenmq::Message& message) {
 
-    log::debug(logcat, "Received get_stats request via LMQ");
+    log::debug(logcat, "Received get_stats request via OMQ");
 
     auto payload = master_node_->get_stats();
 
     message.send_reply(payload);
 }
 
-oxenc::bt_value json_to_bt(nlohmann::json j) {
-    if (j.is_object()) {
-        oxenc::bt_dict res;
-        for (auto& [k, v] : j.items())
-            res[k] = json_to_bt(v);
-        return res;
-    }
-    if (j.is_array()) {
-        oxenc::bt_list res;
-        for (auto& v : j)
-            res.push_back(json_to_bt(v));
-        return res;
-    }
-    if (j.is_string())
-        return j.get<std::string>();
-    if (j.is_boolean())
-        return j.get<bool>() ? 1 : 0;
-    if (j.is_number_unsigned())
-        return j.get<uint64_t>();
-    if (j.is_number_integer())
-        return j.get<int64_t>();
-    log::warning(
-            logcat,
-            "client request returned json with an unhandled value type, unable to convert to bt");
-    throw std::runtime_error{"internal error"};
-}
-
-nlohmann::json bt_to_json(oxenc::bt_dict_consumer d) {
-    nlohmann::json j = nlohmann::json::object();
-    while (!d.is_finished()) {
-        std::string key{d.key()};
-        if (d.is_string())
-            j[key] = d.consume_string();
-        else if (d.is_dict())
-            j[key] = bt_to_json(d.consume_dict_consumer());
-        else if (d.is_list())
-            j[key] = bt_to_json(d.consume_list_consumer());
-        else if (d.is_negative_integer())
-            j[key] = d.consume_integer<int64_t>();
-        else if (d.is_integer())
-            j[key] = d.consume_integer<uint64_t>();
-        else
-            assert(!"invalid bt type!");
-    }
-    return j;
-}
-
-nlohmann::json bt_to_json(oxenc::bt_list_consumer l) {
-    nlohmann::json j = nlohmann::json::array();
-    while (!l.is_finished()) {
-        if (l.is_string())
-            j.push_back(l.consume_string());
-        else if (l.is_dict())
-            j.push_back(bt_to_json(l.consume_dict_consumer()));
-        else if (l.is_list())
-            j.push_back(bt_to_json(l.consume_list_consumer()));
-        else if (l.is_negative_integer())
-            j.push_back(l.consume_integer<int64_t>());
-        else if (l.is_integer())
-            j.push_back(l.consume_integer<uint64_t>());
-        else
-            assert(!"invalid bt type!");
-    }
-    return j;
-}
 
 void OMQ::handle_client_request(std::string_view method, oxenmq::Message& message, bool forwarded) {
     log::debug(logcat, "Handling OMQ RPC request for {}", method);
-    auto it = rpc::RequestHandler::client_rpc_endpoints.find(method);
-
-    // This endpoint shouldn't have been registered if it isn't in here:
-    assert(it != rpc::RequestHandler::client_rpc_endpoints.end());
 
     const size_t full_size = forwarded ? 2 : 1;
     const size_t empty_body = full_size - 1;
@@ -300,71 +154,27 @@ void OMQ::handle_client_request(std::string_view method, oxenmq::Message& messag
         return;
     }
 
-    if (!forwarded && rate_limiter_->should_rate_limit_client(message.remote)) {
-        log::debug(logcat, "Rate limiting client request from {}", message.remote);
-        return message.send_reply(
-                std::to_string(http::TOO_MANY_REQUESTS.first),
-                "Too many requests, try again later");
-    }
+    [[maybe_unused]] bool found = handle_client_rpc(
+            method,
+            message.data.size() == full_size ? message.data.back() : ""sv,
+            message.remote,
+            [send = message.send_later()](http::response_code status, std::string_view body) {
+                if (status == http::OK)
+                    send.reply(body);
+                else
+                    send.reply(std::to_string(status.first), body);
+            },
+            forwarded);
 
-    try {
-        std::string_view params = message.data.size() == full_size ? message.data.back() : ""sv;
-        it->second.omq(
-                *request_handler_,
-                params,
-                forwarded,
-                [send = message.send_later(),
-                 bt_encoded = !params.empty() && params.front() == 'd'](rpc::Response res) {
-                    std::string dump;
-                    std::string_view body;
-                    if (auto* j = std::get_if<nlohmann::json>(&res.body)) {
-                        if (bt_encoded)
-                            dump = bt_serialize(json_to_bt(std::move(*j)));
-                        else
-                            dump = j->dump();
-                        body = dump;
-                    } else
-                        body = view_body(res);
-
-                    if (res.status == http::OK) {
-                        log::debug(
-                                logcat,
-                                "OMQ RPC request successful, returning {}-byte {} response",
-                                body.size(),
-                                dump.empty() ? "text"
-                                : bt_encoded ? "bt"
-                                             : "json");
-                        // Success: return just the body
-                        send.reply(body);
-                    } else {
-                        // On error return [errcode, body]
-                        log::debug(
-                                logcat,
-                                "OMQ RPC request failed, replying with [{}, {}]",
-                                res.status.first,
-                                body);
-                        send.reply(std::to_string(res.status.first), body);
-                    }
-                });
-    } catch (const rpc::parse_error& e) {
-        // These exceptions carry a failure message to send back to the client
-        log::debug(logcat, "Invalid request: {}", e.what());
-        message.send_reply(
-                std::to_string(http::BAD_REQUEST.first), "invalid request: "s + e.what());
-    } catch (const std::exception& e) {
-        // Other exceptions might contain something sensitive or irrelevant so warn about it and
-        // send back a generic message.
-        log::warning(logcat, "Client request raised an exception: {}", e.what());
-        message.send_reply(std::to_string(http::INTERNAL_SERVER_ERROR.first), "request failed");
-    }
+    // This endpoint shouldn't have been registered at all if it isn't found in here
+    assert(found);
 }
 
 OMQ::OMQ(
-        const mnode::mn_record& me,
-        const crypto::x25519_seckey& privkey,
+        const crypto::x25519_keypair& keys,
         const std::vector<crypto::x25519_pubkey>& stats_access_keys) :
-        omq_{std::string{me.pubkey_x25519.view()},
-             std::string{privkey.view()},
+        omq_{std::string{keys.pub.view()},
+             std::string{keys.sec.view()},
              true,                                         // is master node
              [this](auto pk) { return peer_lookup(pk); },  // MN-by-key lookup func
              omq_logger,
@@ -376,9 +186,9 @@ OMQ::OMQ(
 
     // Endpoints invoked by other MNs
     omq_.add_category("mn", oxenmq::Access{oxenmq::AuthLevel::none, true, false}, 2 /*reserved threads*/, 1000 /*max queue*/)
+        .add_request_command("data_ready", [this](auto& m) { handle_mn_data_ready(m); })
         .add_request_command("data", [this](auto& m) { handle_mn_data(m); })
         .add_request_command("ping", [this](auto& m) { handle_ping(m); })
-        .add_request_command("storage_test", [this](auto& m) { handle_storage_test(m); }) // NB: requires a 60s request timeout
         .add_request_command("onion_request", [this](auto& m) { handle_onion_request(m); })
         .add_request_command("storage_cc", [this](auto& m) {
             if (m.data.size() >= 2) return handle_client_request(m.data[0], m, true);
@@ -404,13 +214,38 @@ OMQ::OMQ(
         .add_request_command("get_stats", [this](auto& m) { handle_get_stats(m); })
         ;
 
-    // We send a sub.block to beldexd to tell it to push new block notifications to us via this
-    // endpoint:
+    // We send a sub.block and sub.mnode_addr to beldexd to tell it to push new block notifications
+    // and mnode address updates to us via these endpoint:
     omq_.add_category("notify", oxenmq::AuthLevel::admin)
-        .add_request_command("block", [this](auto&&) {
-            log::debug(logcat, "Recieved new block notification from beldexd, updating swarms");
+        .add_command("block", [this](auto&&) {
+            log::debug(logcat, "Received new block notification from beldexd, updating swarms");
             if (master_node_) master_node_->update_swarms();
-        });
+        })
+    .add_command("mnode_addr", [this](oxenmq::Message&m ) {
+        if (m.data.size() < 1)
+            return;
+        try {
+            crypto::legacy_pubkey pk;
+            mnode::contact c;
+            oxenc::bt_dict_consumer info{m.data[0]};
+            pk = crypto::legacy_pubkey::from_bytes(info.require<std::string_view>("K"));
+            if (auto edpk_bytes = info.maybe<std::string_view>("Ke"))
+                c.pubkey_ed25519 = crypto::ed25519_pubkey::from_bytes(*edpk_bytes);
+            else
+                std::memcpy(c.pubkey_ed25519.data(), pk.data(), 32);
+            c.pubkey_x25519 = crypto::x25519_pubkey::from_bytes(info.require<std::string_view>("Kx"));
+            c.ip = mnode::ipv4{info.require<std::string>("ip")};
+            c.https_port = info.require<uint16_t>("sh");
+            c.omq_quic_port = info.require<uint16_t>("sq");
+            c.version = info.require<std::array<uint16_t, 3>>("vs");
+
+            log::debug(logcat,"Received new mnode address info from oxend for {}",
+                    pk.hex());
+            master_node_->contacts().update(pk, c);
+        } catch (const std::exception& e) {
+            log::error(logcat, "Received invalid mnode address update from oxend: {}", e.what());
+        }
+    });
 
     // clang-format on
     omq_.set_general_threads(1);
@@ -466,7 +301,7 @@ void OMQ::init(
     // Initialization happens in 3 steps:
     // - connect to beldexd
     // - get initial block update from beldexd
-    // - start OMQ and HTTPS listeners
+    // - start OMQ/QUIC/HTTPS listeners
     assert(!master_node_);
     master_node_ = mn;
     request_handler_ = rh;
@@ -479,12 +314,12 @@ void OMQ::init(
     master_node_->on_beldexd_connected();
 
     // start omq listener
-    const auto& me = master_node_->own_address();
-    log::info(logcat, "Starting listening for OxenMQ connections on port {}", me.omq_port);
+    const auto port = master_node_->own_address().omq_quic_port;
+    log::info(logcat, "Starting listening for OxenMQ connections on port {}", port);
     auto omq_prom = std::make_shared<std::promise<void>>();
     auto omq_future = omq_prom->get_future();
     omq_.listen_curve(
-            fmt::format("tcp://0.0.0.0:{}", me.omq_port),
+            fmt::format("tcp://0.0.0.0:{}", port),
             [this](std::string_view /*addr*/, std::string_view pk, bool /*mn*/) {
                 return stats_access_keys_.count(std::string{pk}) ? oxenmq::AuthLevel::admin
                                                                  : oxenmq::AuthLevel::none;
@@ -503,8 +338,8 @@ void OMQ::init(
     try {
         omq_future.get();
     } catch (const std::runtime_error&) {
-        auto msg = fmt::format("OxenMQ server failed to bind to port {}", me.omq_port);
-        log::critical(logcat, msg);
+        auto msg = fmt::format("OxenMQ server failed to bind to port {}", port);
+        log::critical(logcat, "{}", msg);
         throw std::runtime_error{msg};
     }
 
@@ -550,4 +385,44 @@ std::pair<std::string_view, rpc::OnionRequestMetadata> OMQ::decode_onion_data(
     return result;
 }
 
-}  // namespace beldex::server
+void OMQ::handle_monitor_messages(oxenmq::Message& message) {
+    // If not a single part then send an empty string so that the base class fires back an error for
+    // us:
+    std::string_view request = message.data.size() != 1 ? ""sv : message.data[0];
+
+    handle_monitor(
+            request,
+            [&message](std::string body) { message.send_reply(std::move(body)); },
+            message.conn);
+}
+
+void OMQ::notify(std::vector<connection_id>& conns, std::string_view notification) {
+    for (const auto& c : conns)
+        if (auto* id = std::get_if<oxenmq::ConnectionID>(&c))
+            omq_.send(*id, "notify.message", notification);
+}
+
+void OMQ::reachability_test(std::shared_ptr<mnode::mn_test> test) {
+    auto ct = master_node_->contacts().find(test->pubkey);
+    if (!ct || !*ct) {
+        test->add_result(false);
+        return;
+    }
+    omq_.request(
+            ct->pubkey_x25519.view(),
+            "mn.ping",
+            [test = std::move(test)](bool success, const auto&) {
+                log::debug(
+                        logcat,
+                        "{} response for OxenMQ ping test of {}",
+                        success ? "Successful" : "FAILED",
+                        test->pubkey);
+
+                test->add_result(success);
+            },
+            // Only use an existing (or new) outgoing connection:
+            oxenmq::send_option::outgoing{},
+            oxenmq::send_option::request_timeout{mnode::MN_PING_TIMEOUT});
+}
+
+}  // namespace beldexss::server

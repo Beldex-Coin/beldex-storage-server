@@ -4,8 +4,11 @@
 
 #include <oxen/log.hpp>
 
-namespace beldex::logging {
+namespace beldexss {
+namespace log = oxen::log;
+}
 
+namespace beldexss::logging {
 void init(const std::filesystem::path& data_dir, oxen::log::Level log_level);
 
-}  // namespace beldex::logging
+}  // namespace beldexss::logging
