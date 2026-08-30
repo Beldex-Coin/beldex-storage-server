@@ -81,8 +81,22 @@ void MQBase::handle_monitor_message_single(
             if (!ed_pk.empty())
                 throw std::runtime_error{"Cannot provide both p= and P= pubkey values"};
             pubkey = d.consume_string();
+            // SECURITY: the `return` here is load-bearing and was missing. Every other
+            // validation branch in this function returns after calling monitor_error, but
+            // this one only wrote the error into `out` and then fell through with an
+            // attacker-controlled short `pubkey`, on an unauthenticated code path.
+            //
+            // With, say, an empty p=, execution continued to `ed_pk = pubkey;
+            // ed_pk.remove_prefix(1);` (undefined behaviour on an empty string_view),
+            // then indexed `pubkey[0]`, and finally handed `verify_key.data()` to
+            // crypto_sign_verify_detached, which unconditionally reads 32 bytes of public
+            // key — an out-of-bounds read past the end of a heap buffer. The
+            // `assert(verify_key.size() == 32)` that looks like it guards this is compiled
+            // out in release builds (NDEBUG), so it protects only debug builds. Falling
+            // through also produced a malformed reply, since `out` would receive a second
+            // set of keys after the error had already been serialized into it.
             if (pubkey.size() != 33)
-                monitor_error(
+                return monitor_error(
                         out, MonitorResponse::BAD_PUBKEY, "Provided p= pubkey must be 33 bytes");
         } else if (ed_pk.empty()) {
             throw std::runtime_error{"Either p= or P= must be given"};
