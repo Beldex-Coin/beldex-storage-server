@@ -56,7 +56,7 @@ using hf_revision = std::pair<int, int>;
 inline constexpr hf_revision STORAGE_SERVER_HARDFORK = {12, 1};
 
 // The hardfork at which we start testing QUIC reachability
-inline constexpr hf_revision QUIC_REACHABILITY_TESTING = {21, 0};
+inline constexpr hf_revision QUIC_REACHABILITY_TESTING = {24, 0};
 
 // The storage server version at which initial handshaking is supported before attempting a swarm
 // message transfer.
