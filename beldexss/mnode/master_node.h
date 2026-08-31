@@ -60,7 +60,7 @@ inline constexpr hf_revision QUIC_REACHABILITY_TESTING = {24, 0};
 
 // The storage server version at which initial handshaking is supported before attempting a swarm
 // message transfer.
-inline constexpr std::array<uint16_t, 3> NEW_SWARM_MEMBER_HANDSHAKE_VERSION = {2, 4, 0}; 
+inline constexpr std::array<uint16_t, 3> NEW_SWARM_MEMBER_HANDSHAKE_VERSION = {2, 4, 1}; 
 
 // The hardfork at which we start allowing 30d TTLs in private namespaces.
 inline constexpr hf_revision HARDFORK_EXTENDED_PRIVATE_TTL = {12, 3};
